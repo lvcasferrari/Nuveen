@@ -1,0 +1,98 @@
+import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
+import { Alarm } from './storage';
+
+// Configure notification handler
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+export const requestNotificationPermissions = async (): Promise<boolean> => {
+  try {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+
+    return finalStatus === 'granted';
+  } catch (error) {
+    console.error('Error requesting notification permissions:', error);
+    return false;
+  }
+};
+
+export const scheduleAlarmNotification = async (alarm: Alarm): Promise<string | null> => {
+  try {
+    // Cancel existing notifications for this alarm
+    await cancelAlarmNotification(alarm.id);
+
+    if (!alarm.enabled) {
+      return null;
+    }
+
+    const [hours, minutes] = alarm.time.split(':').map(Number);
+    const now = new Date();
+    const scheduledTime = new Date();
+    scheduledTime.setHours(hours, minutes, 0, 0);
+
+    // If the time has passed today, schedule for tomorrow
+    if (scheduledTime <= now) {
+      scheduledTime.setDate(scheduledTime.getDate() + 1);
+    }
+
+    const trigger = {
+      hour: hours,
+      minute: minutes,
+      repeats: alarm.repeatDays.length > 0,
+    };
+
+    const notificationId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: alarm.name || 'Nuveen Alarm',
+        body: 'Scan your NFC tag to stop the alarm',
+        sound: 'default',
+        priority: Notifications.AndroidNotificationPriority.MAX,
+        data: {
+          alarmId: alarm.id,
+          requiresNFC: alarm.nfcRequired,
+        },
+      },
+      trigger: trigger as any,
+    });
+
+    return notificationId;
+  } catch (error) {
+    console.error('Error scheduling alarm notification:', error);
+    return null;
+  }
+};
+
+export const cancelAlarmNotification = async (alarmId: string): Promise<void> => {
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    const alarmsToCancel = scheduled.filter(
+      n => n.content.data?.alarmId === alarmId
+    );
+
+    for (const notification of alarmsToCancel) {
+      await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+    }
+  } catch (error) {
+    console.error('Error canceling alarm notification:', error);
+  }
+};
+
+export const cancelAllAlarmNotifications = async (): Promise<void> => {
+  try {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+  } catch (error) {
+    console.error('Error canceling all notifications:', error);
+  }
+};
