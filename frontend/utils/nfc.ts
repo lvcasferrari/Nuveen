@@ -1,7 +1,21 @@
-import * as NFC from 'expo-nfc';
 import { Platform } from 'react-native';
 
+// NFC is only available on native platforms
+let NFC: any = null;
+
+if (Platform.OS !== 'web') {
+  try {
+    NFC = require('expo-nfc');
+  } catch (e) {
+    console.warn('expo-nfc not available');
+  }
+}
+
 export const isNFCAvailable = async (): Promise<boolean> => {
+  if (Platform.OS === 'web' || !NFC) {
+    return false;
+  }
+
   try {
     const isSupported = await NFC.hasHardwareAsync();
     if (!isSupported) {
@@ -16,6 +30,10 @@ export const isNFCAvailable = async (): Promise<boolean> => {
 };
 
 export const readNFCTag = async (): Promise<string | null> => {
+  if (Platform.OS === 'web' || !NFC) {
+    throw new Error('NFC is not available on this platform');
+  }
+
   try {
     const available = await isNFCAvailable();
     if (!available) {
@@ -23,7 +41,7 @@ export const readNFCTag = async (): Promise<string | null> => {
     }
 
     return new Promise((resolve, reject) => {
-      const subscription = NFC.addNdefListener((event) => {
+      const subscription = NFC.addNdefListener((event: any) => {
         if (event.ndefMessage && event.ndefMessage.length > 0) {
           // Get the tag ID
           const tagId = event.ndefMessage[0]?.id || Date.now().toString();
