@@ -1,27 +1,30 @@
 import { Platform } from 'react-native';
 
 // NFC is only available on native platforms
-let NFC: any = null;
+let NfcManager: any = null;
 
 if (Platform.OS !== 'web') {
   try {
-    NFC = require('expo-nfc');
+    NfcManager = require('react-native-nfc-manager').default;
   } catch (e) {
-    console.warn('expo-nfc not available');
+    console.warn('react-native-nfc-manager not available');
   }
 }
 
 export const isNFCAvailable = async (): Promise<boolean> => {
-  if (Platform.OS === 'web' || !NFC) {
+  if (Platform.OS === 'web' || !NfcManager) {
     return false;
   }
 
   try {
-    const isSupported = await NFC.hasHardwareAsync();
+    const isSupported = await NfcManager.isSupported();
     if (!isSupported) {
       return false;
     }
-    const isEnabled = await NFC.isEnabledAsync();
+    
+    // Try to start NFC manager
+    await NfcManager.start();
+    const isEnabled = await NfcManager.isEnabled();
     return isEnabled;
   } catch (error) {
     console.error('Error checking NFC availability:', error);
@@ -30,7 +33,7 @@ export const isNFCAvailable = async (): Promise<boolean> => {
 };
 
 export const readNFCTag = async (): Promise<string | null> => {
-  if (Platform.OS === 'web' || !NFC) {
+  if (Platform.OS === 'web' || !NfcManager) {
     throw new Error('NFC is not available on this platform');
   }
 
@@ -40,29 +43,40 @@ export const readNFCTag = async (): Promise<string | null> => {
       throw new Error('NFC is not available on this device');
     }
 
-    return new Promise((resolve, reject) => {
-      const subscription = NFC.addNdefListener((event: any) => {
-        if (event.ndefMessage && event.ndefMessage.length > 0) {
-          // Get the tag ID
-          const tagId = event.ndefMessage[0]?.id || Date.now().toString();
-          subscription.remove();
-          resolve(tagId);
-        }
-      });
+    // Start NFC manager if not already started
+    await NfcManager.start();
 
-      // Timeout after 30 seconds
-      setTimeout(() => {
-        subscription.remove();
-        reject(new Error('NFC scan timeout'));
-      }, 30000);
-    });
+    // Request NFC technology
+    await NfcManager.requestTechnology([NfcManager.NfcTech.Ndef, NfcManager.NfcTech.IsoDep]);
+
+    // Get tag
+    const tag = await NfcManager.getTag();
+    
+    // Cancel technology request
+    await NfcManager.cancelTechnologyRequest();
+
+    // Return tag ID
+    if (tag && tag.id) {
+      return tag.id;
+    }
+
+    return Date.now().toString();
   } catch (error) {
     console.error('Error reading NFC tag:', error);
+    try {
+      await NfcManager.cancelTechnologyRequest();
+    } catch (e) {
+      // Ignore cancellation errors
+    }
     return null;
   }
 };
 
 export const requestNFCPermissions = async (): Promise<boolean> => {
+  if (Platform.OS === 'web' || !NfcManager) {
+    return false;
+  }
+
   try {
     if (Platform.OS === 'android') {
       // Android NFC doesn't require runtime permissions
