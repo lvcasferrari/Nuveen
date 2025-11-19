@@ -1,30 +1,48 @@
-import { Text, View, StyleSheet, Image } from "react-native";
+import React, { useEffect, useState } from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { router } from 'expo-router';
+import { isOnboardingComplete } from '../utils/storage';
+import { GradientBackground } from '../components/GradientBackground';
 
-const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+export default function IndexScreen() {
+  const [loading, setLoading] = useState(true);
 
-export default function Index() {
-  console.log(EXPO_PUBLIC_BACKEND_URL, "EXPO_PUBLIC_BACKEND_URL");
+  useEffect(() => {
+    checkOnboarding();
+  }, []);
+
+  const checkOnboarding = async () => {
+    try {
+      const completed = await isOnboardingComplete();
+      
+      setTimeout(() => {
+        if (completed) {
+          router.replace('/home');
+        } else {
+          router.replace('/onboarding');
+        }
+      }, 1000);
+    } catch (error) {
+      console.error('Error checking onboarding:', error);
+      router.replace('/onboarding');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <View style={styles.container}>
-      <Image
-        source={require("../assets/images/app-image.png")}
-        style={styles.image}
-      />
-    </View>
+    <GradientBackground theme="dark">
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#F4C07A" />
+      </View>
+    </GradientBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0c0c0c",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  image: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "contain",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
