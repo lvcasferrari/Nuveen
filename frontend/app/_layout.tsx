@@ -20,17 +20,7 @@ export default function RootLayout() {
             contentStyle: { backgroundColor: '#0C0C0C' },
             animation: 'fade',
           }}
-        >
-          <Stack.Screen name="index" />
-          <Stack.Screen name="onboarding" />
-          <Stack.Screen name="nfc-setup" />
-          <Stack.Screen name="home" />
-          <Stack.Screen name="alarms" />
-          <Stack.Screen name="add-alarm" />
-          <Stack.Screen name="edit-alarm" />
-          <Stack.Screen name="alarm-ringing" />
-          <Stack.Screen name="settings" />
-        </Stack>
+        />
       </AlarmProvider>
     </GestureHandlerRootView>
   );
