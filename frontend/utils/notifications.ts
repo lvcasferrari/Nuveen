@@ -2,14 +2,18 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { Alarm } from './storage';
 
-// Configure notification handler
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+// Configure notification handler (only for development builds, not Expo Go)
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+} catch (error) {
+  console.log('Notification handler setup skipped (Expo Go limitation)');
+}
 
 export const requestNotificationPermissions = async (): Promise<boolean> => {
   try {
