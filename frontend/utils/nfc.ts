@@ -162,36 +162,57 @@ export const generateNFCChecksum = (tagId: string): string => {
 };
 
 /**
- * Validate if scanned tag matches configured tag
+ * Expected secret code format:
+ * NUVEEN:ALARM:2025:SECRET_KEY_12345
+ */
+const NUVEEN_SECRET_CODE = 'NUVEEN:ALARM:2025:SECRET_KEY_12345';
+
+/**
+ * Validate if scanned tag matches the secret code
  * Returns detailed validation result for security logging
  */
 export const validateNFCTag = (
-  scannedTagId: string | null,
+  scannedTagData: string | null,
   configuredTagId: string | null,
-  enabledMode: 'strict' | 'lenient' = 'lenient'
+  enabledMode: 'strict' | 'lenient' = 'strict'
 ): { valid: boolean; reason: string } => {
-  if (!scannedTagId) {
+  if (!scannedTagData) {
     return { valid: false, reason: 'No tag data read' };
   }
 
-  if (!configuredTagId) {
-    return { valid: true, reason: 'No tag configured - any tag accepted' };
+  // Check if the scanned data contains the secret code
+  const normalizedScanned = scannedTagData.trim();
+  const normalizedSecret = NUVEEN_SECRET_CODE.trim();
+
+  // Exact match with secret code
+  if (normalizedScanned === normalizedSecret) {
+    return { valid: true, reason: 'Secret code matches exactly' };
   }
 
-  // Exact match
-  if (scannedTagId === configuredTagId) {
-    return { valid: true, reason: 'Tag matches exactly' };
+  // Check if secret code is contained in the scanned data
+  if (normalizedScanned.includes(normalizedSecret)) {
+    return { valid: true, reason: 'Secret code found in tag data' };
   }
 
-  // Checksum match (for lenient mode)
-  if (enabledMode === 'lenient') {
-    const scannedChecksum = generateNFCChecksum(scannedTagId);
-    const configuredChecksum = generateNFCChecksum(configuredTagId);
-    
-    if (scannedChecksum === configuredChecksum) {
-      return { valid: true, reason: 'Tag checksum matches' };
-    }
+  // Lenient mode: check if scanned data starts with "NUVEEN:ALARM"
+  if (enabledMode === 'lenient' && normalizedScanned.startsWith('NUVEEN:ALARM')) {
+    return { valid: true, reason: 'Valid Nuveen tag detected (lenient mode)' };
   }
 
-  return { valid: false, reason: 'Tag does not match configured tag' };
+  // If no secret code match, fall back to comparing with configured tag ID
+  if (configuredTagId && normalizedScanned === configuredTagId) {
+    return { valid: true, reason: 'Tag ID matches configured tag' };
+  }
+
+  return { 
+    valid: false, 
+    reason: `Invalid tag. Expected: "${NUVEEN_SECRET_CODE.substring(0, 20)}..."` 
+  };
+};
+
+/**
+ * Get the expected secret code for NFC configuration
+ */
+export const getExpectedSecretCode = (): string => {
+  return NUVEEN_SECRET_CODE;
 };
