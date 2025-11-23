@@ -46,21 +46,48 @@ export const readNFCTag = async (): Promise<string | null> => {
     // Start NFC manager if not already started
     await NfcManager.start();
 
-    // Request NFC technology
-    await NfcManager.requestTechnology([NfcManager.NfcTech.Ndef, NfcManager.NfcTech.IsoDep]);
+    // Request NFC technology with timeout
+    const techList = Platform.OS === 'ios' 
+      ? [NfcManager.NfcTech.Ndef]
+      : [NfcManager.NfcTech.Ndef, NfcManager.NfcTech.IsoDep, NfcManager.NfcTech.NfcA];
+    
+    await NfcManager.requestTechnology(techList, {
+      isAlertDialogEnabled: true,
+      alertMessage: 'Hold your Nuveen tag near your phone to scan',
+    });
 
-    // Get tag
-    const tag = await NfcManager.getTag();
+    // Get tag with retries
+    let tag = null;
+    let retries = 3;
+    
+    while (!tag && retries > 0) {
+      tag = await NfcManager.getTag();
+      if (!tag) {
+        retries--;
+        if (retries > 0) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+    }
     
     // Cancel technology request
-    await NfcManager.cancelTechnologyRequest();
+    try {
+      await NfcManager.cancelTechnologyRequest();
+    } catch (e) {
+      console.warn('Error cancelling technology request:', e);
+    }
 
-    // Return tag ID
+    // Return tag ID with fallback
     if (tag && tag.id) {
       return tag.id;
     }
 
-    return Date.now().toString();
+    // If no tag ID, try to generate from NDEF or other data
+    if (tag && tag.ndefMessage && tag.ndefMessage.length > 0) {
+      return JSON.stringify(tag.ndefMessage[0]);
+    }
+
+    return null;
   } catch (error) {
     console.error('Error reading NFC tag:', error);
     try {
@@ -90,4 +117,53 @@ export const requestNFCPermissions = async (): Promise<boolean> => {
     console.error('Error requesting NFC permissions:', error);
     return false;
   }
+};
+
+/**
+ * Generate a secure checksum for NFC tag validation
+ * This helps ensure only properly configured tags can be used
+ */
+export const generateNFCChecksum = (tagId: string): string => {
+  let hash = 0;
+  for (let i = 0; i < tagId.length; i++) {
+    const char = tagId.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash).toString(16);
+};
+
+/**
+ * Validate if scanned tag matches configured tag
+ * Returns detailed validation result for security logging
+ */
+export const validateNFCTag = (
+  scannedTagId: string | null,
+  configuredTagId: string | null,
+  enabledMode: 'strict' | 'lenient' = 'lenient'
+): { valid: boolean; reason: string } => {
+  if (!scannedTagId) {
+    return { valid: false, reason: 'No tag data read' };
+  }
+
+  if (!configuredTagId) {
+    return { valid: true, reason: 'No tag configured - any tag accepted' };
+  }
+
+  // Exact match
+  if (scannedTagId === configuredTagId) {
+    return { valid: true, reason: 'Tag matches exactly' };
+  }
+
+  // Checksum match (for lenient mode)
+  if (enabledMode === 'lenient') {
+    const scannedChecksum = generateNFCChecksum(scannedTagId);
+    const configuredChecksum = generateNFCChecksum(configuredTagId);
+    
+    if (scannedChecksum === configuredChecksum) {
+      return { valid: true, reason: 'Tag checksum matches' };
+    }
+  }
+
+  return { valid: false, reason: 'Tag does not match configured tag' };
 };

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { GradientBackground } from '../components/GradientBackground';
+import { useGradient } from '../contexts/GradientContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,10 +18,12 @@ import { getSettings, saveSettings } from '../utils/storage';
 import { readNFCTag, isNFCAvailable } from '../utils/nfc';
 
 export default function SettingsScreen() {
+  const { setGradientStyle } = useGradient();
   const [settings, setSettings] = useState({
     nfcTagId: null as string | null,
     theme: 'auto' as 'light' | 'dark' | 'auto',
     vibrationEnabled: true,
+    gradientStyle: 'dawn' as 'dawn' | 'amber' | 'warm' | 'dark',
   });
   const [scanning, setScanning] = useState(false);
 
@@ -86,6 +89,20 @@ export default function SettingsScreen() {
     await saveSettings(newSettings);
     setSettings(newSettings);
   };
+
+  const handleChangeGradient = async (gradientStyle: 'dawn' | 'amber' | 'warm' | 'dark') => {
+    const newSettings = { ...settings, gradientStyle };
+    await saveSettings(newSettings);
+    setSettings(newSettings);
+    setGradientStyle(gradientStyle);
+  };
+
+  const GRADIENT_STYLES = [
+    { id: 'dawn', label: 'Dawn', colors: ['#F4C07A', '#EAA85B', '#F4C07A'] },
+    { id: 'amber', label: 'Amber', colors: ['#EAA85B', '#F4C07A', '#EAA85B'] },
+    { id: 'warm', label: 'Warm', colors: ['#F4C07A', '#D7D3CC', '#F4C07A'] },
+    { id: 'dark', label: 'Dark', colors: ['#0C0C0C', '#1A1A1A', '#0C0C0C'] },
+  ] as const;
 
   return (
     <GradientBackground theme="dawn" animated>
@@ -165,6 +182,41 @@ export default function SettingsScreen() {
                   thumbColor={'#fff'}
                   ios_backgroundColor="#3e3e3e"
                 />
+              </View>
+
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Ionicons name="color-palette" size={24} color="#F4C07A" />
+                  <View style={styles.settingText}>
+                    <Text style={styles.settingLabel}>Gradient Style</Text>
+                    <Text style={styles.settingDescription}>Choose your theme color</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.gradientGrid}>
+                {GRADIENT_STYLES.map((gradient) => (
+                  <TouchableOpacity
+                    key={gradient.id}
+                    onPress={() => handleChangeGradient(gradient.id as any)}
+                    style={[
+                      styles.gradientOption,
+                      settings.gradientStyle === gradient.id && styles.gradientOptionSelected,
+                    ]}
+                  >
+                    <LinearGradient
+                      colors={gradient.colors}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.gradientPreview}
+                    >
+                      {settings.gradientStyle === gradient.id && (
+                        <Ionicons name="checkmark-circle" size={24} color="#fff" />
+                      )}
+                    </LinearGradient>
+                    <Text style={styles.gradientLabel}>{gradient.label}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
           </View>
@@ -345,5 +397,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#0C0C0C',
     opacity: 0.5,
+  },
+  gradientGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    paddingHorizontal: 8,
+  },
+  gradientOption: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  gradientOptionSelected: {
+    opacity: 1,
+  },
+  gradientPreview: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  gradientLabel: {
+    fontSize: 12,
+    color: '#0C0C0C',
+    fontWeight: '500',
   },
 });

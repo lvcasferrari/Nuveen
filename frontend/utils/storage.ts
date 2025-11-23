@@ -14,6 +14,7 @@ export interface Settings {
   nfcTagId: string | null;
   theme: 'light' | 'dark' | 'auto';
   vibrationEnabled: boolean;
+  gradientStyle: 'dawn' | 'amber' | 'warm' | 'dark';
 }
 
 export interface WakeLog {
@@ -78,6 +79,7 @@ export const getSettings = async (): Promise<Settings> => {
       nfcTagId: null,
       theme: 'auto',
       vibrationEnabled: true,
+      gradientStyle: 'dawn',
     };
   } catch (error) {
     console.error('Error getting settings:', error);
@@ -85,6 +87,7 @@ export const getSettings = async (): Promise<Settings> => {
       nfcTagId: null,
       theme: 'auto',
       vibrationEnabled: true,
+      gradientStyle: 'dawn',
     };
   }
 };
