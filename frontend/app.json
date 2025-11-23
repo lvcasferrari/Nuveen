@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "scheme": "nuveen",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
