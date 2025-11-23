@@ -11,8 +11,10 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NFCReaderUsageDescription": "Nuveen needs NFC access to scan your tag and stop alarms."
-      }
+        "NFCReaderUsageDescription": "Nuveen needs NFC access to scan your tag and stop alarms.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.nuveen.alarm"
     },
     "android": {
       "adaptiveIcon": {
@@ -45,7 +47,9 @@
         {
           "icon": "./assets/images/notification-icon.png",
           "color": "#F4C07A",
-          "sounds": ["./assets/sounds/alarm.mp3"]
+          "sounds": [
+            "./assets/sounds/alarm.mp3"
+          ]
         }
       ],
       [
@@ -60,6 +64,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "1dc210bc-3d6f-4595-96e8-173e253d1036"
+      }
+    },
+    "owner": "lucas_fs"
   }
 }
