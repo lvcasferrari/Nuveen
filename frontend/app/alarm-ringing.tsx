@@ -24,6 +24,7 @@ export default function AlarmRingingScreen() {
   const alarmId = params.alarmId as string;
   const alarmName = params.alarmName as string || 'Alarm';
   const time = params.time as string;
+  const customSoundUri = params.customSoundUri as string | undefined;
 
   useEffect(() => {
     // Start vibration pattern
