@@ -4,7 +4,6 @@
     "slug": "nuveen",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
     "scheme": "nuveen",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
@@ -17,10 +16,6 @@
       "bundleIdentifier": "com.nuveen.alarm"
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#0C0C0C"
-      },
       "permissions": [
         "android.permission.NFC",
         "android.permission.SCHEDULE_EXACT_ALARM",
@@ -32,7 +27,6 @@
       "package": "com.nuveen.alarm"
     },
     "notification": {
-      "icon": "./assets/images/notification-icon.png",
       "color": "#F4C07A"
     },
     "web": {
@@ -45,7 +39,6 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/notification-icon.png",
           "color": "#F4C07A"
         }
       ]
