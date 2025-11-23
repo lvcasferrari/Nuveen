@@ -439,4 +439,32 @@ const styles = StyleSheet.create({
     color: '#0C0C0C',
     fontWeight: '500',
   },
+  instructionsBox: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: 'rgba(244, 192, 122, 0.1)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(244, 192, 122, 0.3)',
+  },
+  instructionsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0C0C0C',
+    marginBottom: 8,
+  },
+  instructionsText: {
+    fontSize: 13,
+    color: '#0C0C0C',
+    lineHeight: 20,
+    opacity: 0.8,
+  },
+  instructionsCode: {
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#EAA85B',
+    backgroundColor: 'rgba(12, 12, 12, 0.05)',
+    paddingHorizontal: 4,
+  },
 });
