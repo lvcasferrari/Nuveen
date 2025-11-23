@@ -27,12 +27,6 @@ const WEEKDAYS = [
   { id: 6, label: 'Sat' },
 ];
 
-const GRADIENT_THEMES = [
-  { id: 'dawn', label: 'Dawn', colors: ['#F4C07A', '#EAA85B'] },
-  { id: 'amber', label: 'Amber', colors: ['#EAA85B', '#F4C07A'] },
-  { id: 'warm', label: 'Warm', colors: ['#F4C07A', '#D7D3CC'] },
-];
-
 export default function AddAlarmScreen() {
   const { addAlarm } = useAlarms();
   const [time, setTime] = useState(new Date());
