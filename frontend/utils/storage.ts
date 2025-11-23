@@ -8,6 +8,8 @@ export interface Alarm {
   enabled: boolean;
   nfcRequired: boolean;
   gradientTheme: 'dawn' | 'amber' | 'warm';
+  customSoundUri?: string; // URI do arquivo de áudio personalizado
+  soundName?: string; // Nome do arquivo de áudio
 }
 
 export interface Settings {
