@@ -12,7 +12,7 @@ import { GradientBackground } from '../components/GradientBackground';
 import { PulsingGlow } from '../components/PulsingGlow';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { readNFCTag, isNFCAvailable } from '../utils/nfc';
+import { readNFCTag, isNFCAvailable, validateNFCTag } from '../utils/nfc';
 import { getSettings, addWakeLog } from '../utils/storage';
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
@@ -46,13 +46,47 @@ export default function AlarmRingingScreen() {
 
   const playAlarmSound = async () => {
     try {
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3' },
-        { shouldPlay: true, isLooping: true, volume: 0.5 }
-      );
-      setSound(newSound);
+      // Set audio mode
+      await Audio.setAudioModeAsync({
+        staysActiveInBackground: true,
+        interruptionHandlingIOS: Audio.InterruptionHandlingIOS.DuckOthers,
+      });
+
+      // Try to use a system notification sound first (more reliable)
+      const soundAssets = [
+        { uri: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3' }, // Fallback online
+      ];
+
+      let playedSuccessfully = false;
+
+      for (const asset of soundAssets) {
+        try {
+          const { sound: newSound } = await Audio.Sound.createAsync(asset, {
+            shouldPlay: false, // Don't auto-play, we'll start it manually
+            isLooping: true,
+            volume: 1.0,
+          });
+
+          // Wait a moment before playing
+          await new Promise(resolve => setTimeout(resolve, 200));
+
+          // Start playback
+          await newSound.playAsync();
+          setSound(newSound);
+          playedSuccessfully = true;
+          console.log('Alarm sound started successfully');
+          break;
+        } catch (err) {
+          console.warn('Failed to play sound from asset:', err);
+          continue;
+        }
+      }
+
+      if (!playedSuccessfully) {
+        console.warn('Could not play alarm sound from any source');
+      }
     } catch (error) {
-      console.error('Error playing alarm sound:', error);
+      console.error('Error setting up alarm sound:', error);
     }
   };
 
@@ -79,14 +113,16 @@ export default function AlarmRingingScreen() {
       if (tagId) {
         const settings = await getSettings();
         
-        if (settings.nfcTagId && tagId === settings.nfcTagId) {
+        // Use the new validation function for secure tag checking
+        const validation = validateNFCTag(tagId, settings.nfcTagId, 'lenient');
+
+        if (validation.valid) {
           // Correct tag scanned
-          await handleDismiss();
-        } else if (!settings.nfcTagId) {
-          // No tag configured, accept any tag
+          console.log('NFC validation successful:', validation.reason);
           await handleDismiss();
         } else {
           // Wrong tag
+          console.warn('NFC validation failed:', validation.reason);
           Alert.alert('Wrong Tag', 'Please scan your configured Nuveen tag.');
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         }
