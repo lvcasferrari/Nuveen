@@ -132,6 +132,19 @@ export default function SettingsScreen() {
                   </View>
                 </View>
               </View>
+
+              {/* NFC Configuration Instructions */}
+              <View style={styles.instructionsBox}>
+                <Text style={styles.instructionsTitle}>📱 Como Configurar sua Tag NFC</Text>
+                <Text style={styles.instructionsText}>
+                  1. Use o app "NFC Tools" para escrever na sua tag{'\n'}
+                  2. Selecione "Write" → "Add a record" → "Text"{'\n'}
+                  3. Digite exatamente:{'\n'}
+                  <Text style={styles.instructionsCode}>NUVEEN:ALARM:2025:SECRET_KEY_12345</Text>{'\n'}
+                  4. Aproxime a tag e clique em "Write"{'\n'}
+                  5. Depois, volte aqui e escaneie sua tag configurada
+                </Text>
+              </View>
               
               <View style={styles.cardActions}>
                 {settings.nfcTagId ? (
