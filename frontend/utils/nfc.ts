@@ -32,6 +32,10 @@ export const isNFCAvailable = async (): Promise<boolean> => {
   }
 };
 
+/**
+ * Read NFC tag and extract text content
+ * Returns the NDEF text payload (e.g., "NUVEEN:ALARM:2025:SECRET_KEY_12345")
+ */
 export const readNFCTag = async (): Promise<string | null> => {
   if (Platform.OS === 'web' || !NfcManager) {
     throw new Error('NFC is not available on this platform');
@@ -77,14 +81,38 @@ export const readNFCTag = async (): Promise<string | null> => {
       console.warn('Error cancelling technology request:', e);
     }
 
-    // Return tag ID with fallback
-    if (tag && tag.id) {
-      return tag.id;
+    if (!tag) {
+      return null;
     }
 
-    // If no tag ID, try to generate from NDEF or other data
-    if (tag && tag.ndefMessage && tag.ndefMessage.length > 0) {
-      return JSON.stringify(tag.ndefMessage[0]);
+    // Try to extract NDEF text payload (the secret code)
+    let ndefText: string | null = null;
+    
+    if (tag.ndefMessage && tag.ndefMessage.length > 0) {
+      try {
+        // Parse NDEF message to get text content
+        const record = tag.ndefMessage[0];
+        if (record.payload) {
+          // Decode payload bytes to text
+          // First 3 bytes are typically header, actual text starts after
+          const textBytes = record.payload.slice(3);
+          ndefText = String.fromCharCode(...textBytes);
+        }
+      } catch (err) {
+        console.warn('Error parsing NDEF message:', err);
+      }
+    }
+
+    // Return the NDEF text content (secret code) if available
+    if (ndefText) {
+      console.log('NFC Tag Text Content:', ndefText);
+      return ndefText;
+    }
+
+    // Fallback to tag ID if no NDEF text
+    if (tag.id) {
+      console.log('NFC Tag ID (fallback):', tag.id);
+      return tag.id;
     }
 
     return null;
