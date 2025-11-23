@@ -46,19 +46,7 @@
         "expo-notifications",
         {
           "icon": "./assets/images/notification-icon.png",
-          "color": "#F4C07A",
-          "sounds": [
-            "./assets/sounds/alarm.mp3"
-          ]
-        }
-      ],
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#0C0C0C"
+          "color": "#F4C07A"
         }
       ]
     ],
