@@ -57,11 +57,18 @@ export default function AlarmRingingScreen() {
       });
 
       // Multiple alarm sound options (fallback chain)
-      const soundAssets = [
-        // Try online alarm sounds first
+      const soundAssets = [];
+      
+      // Se tiver áudio customizado, usar primeiro
+      if (customSoundUri) {
+        soundAssets.push({ uri: customSoundUri });
+      }
+      
+      // Adicionar sons padrão como fallback
+      soundAssets.push(
         { uri: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3' },
-        { uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3' },
-      ];
+        { uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3' }
+      );
 
       let playedSuccessfully = false;
 
