@@ -60,7 +60,7 @@ export default function AddAlarmScreen() {
       repeatDays,
       enabled: true,
       nfcRequired: true,
-      gradientTheme,
+      gradientTheme: 'dawn', // Use default theme from settings
     };
 
     await addAlarm(alarm);
