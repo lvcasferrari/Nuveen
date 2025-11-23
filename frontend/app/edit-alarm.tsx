@@ -7,6 +7,7 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  Platform,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { GradientBackground } from '../components/GradientBackground';
@@ -15,7 +16,9 @@ import { useAlarms } from '../contexts/AlarmContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Platform } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import { playMediumFeedback } from '../utils/feedback';
 
 const WEEKDAYS = [
   { id: 0, label: 'Sun' },
@@ -46,6 +49,8 @@ export default function EditAlarmScreen() {
   const [name, setName] = useState(alarm?.name || '');
   const [repeatDays, setRepeatDays] = useState<number[]>(alarm?.repeatDays || []);
   const [showTimePicker, setShowTimePicker] = useState(Platform.OS === 'ios');
+  const [customSoundUri, setCustomSoundUri] = useState<string | undefined>(alarm?.customSoundUri);
+  const [soundName, setSoundName] = useState<string | undefined>(alarm?.soundName);
 
   if (!alarm) {
     return (
@@ -58,11 +63,48 @@ export default function EditAlarmScreen() {
   }
 
   const toggleDay = (dayId: number) => {
+    playMediumFeedback();
     if (repeatDays.includes(dayId)) {
       setRepeatDays(repeatDays.filter(d => d !== dayId));
     } else {
       setRepeatDays([...repeatDays, dayId].sort());
     }
+  };
+
+  const handlePickAudio = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'audio/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        
+        // Copiar arquivo para diretório do app
+        const fileName = `alarm_sound_${Date.now()}.${asset.name.split('.').pop()}`;
+        const destPath = `${FileSystem.documentDirectory}${fileName}`;
+        
+        await FileSystem.copyAsync({
+          from: asset.uri,
+          to: destPath,
+        });
+
+        setCustomSoundUri(destPath);
+        setSoundName(asset.name);
+        playMediumFeedback();
+        Alert.alert('Sucesso', `Áudio "${asset.name}" selecionado!`);
+      }
+    } catch (error) {
+      console.error('Error picking audio:', error);
+      Alert.alert('Erro', 'Não foi possível selecionar o áudio');
+    }
+  };
+
+  const handleRemoveAudio = () => {
+    setCustomSoundUri(undefined);
+    setSoundName(undefined);
+    playMediumFeedback();
   };
 
   const handleSave = async () => {
@@ -75,7 +117,8 @@ export default function EditAlarmScreen() {
       name: name || 'Morning Ritual',
       time: timeStr,
       repeatDays,
-      // Keep existing gradient theme
+      customSoundUri,
+      soundName,
     };
 
     await updateAlarm(updatedAlarm);
@@ -173,6 +216,55 @@ export default function EditAlarmScreen() {
                   </LinearGradient>
                 </TouchableOpacity>
               ))}
+            </View>
+          </View>
+
+          {/* Alarm Sound */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Alarm Sound</Text>
+            <View style={styles.audioSection}>
+              <View style={styles.audioInfo}>
+                <Ionicons 
+                  name={customSoundUri ? "musical-notes" : "volume-high"} 
+                  size={24} 
+                  color="#F4C07A" 
+                />
+                <View style={styles.audioText}>
+                  <Text style={styles.audioLabel}>
+                    {customSoundUri ? 'Custom Audio' : 'Default Sound'}
+                  </Text>
+                  <Text style={styles.audioSubtext}>
+                    {customSoundUri ? soundName : 'Standard alarm sound'}
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.audioButtons}>
+                {customSoundUri ? (
+                  <TouchableOpacity
+                    onPress={handleRemoveAudio}
+                    style={styles.removeAudioButton}
+                  >
+                    <Ionicons name="close-circle" size={20} color="#FF4444" />
+                    <Text style={styles.removeAudioText}>Remove</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    onPress={handlePickAudio}
+                    activeOpacity={0.8}
+                  >
+                    <LinearGradient
+                      colors={['#F4C07A', '#EAA85B']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.pickAudioButton}
+                    >
+                      <Ionicons name="add" size={20} color="#0C0C0C" />
+                      <Text style={styles.pickAudioText}>Choose Audio</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           </View>
 
@@ -280,6 +372,62 @@ const styles = StyleSheet.create({
   },
   dayTextActive: {
     opacity: 1,
+  },
+  audioSection: {
+    backgroundColor: 'rgba(12, 12, 12, 0.05)',
+    borderRadius: 16,
+    padding: 16,
+  },
+  audioInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  audioText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  audioLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0C0C0C',
+    marginBottom: 4,
+  },
+  audioSubtext: {
+    fontSize: 14,
+    color: '#0C0C0C',
+    opacity: 0.6,
+  },
+  audioButtons: {
+    marginTop: 8,
+  },
+  pickAudioButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 44,
+    borderRadius: 22,
+    paddingHorizontal: 20,
+  },
+  pickAudioText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0C0C0C',
+    marginLeft: 8,
+  },
+  removeAudioButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 68, 68, 0.1)',
+  },
+  removeAudioText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FF4444',
+    marginLeft: 8,
   },
   nfcInfo: {
     flexDirection: 'row',
