@@ -161,35 +161,6 @@ export default function AddAlarmScreen() {
             </View>
           </View>
 
-          {/* Gradient Theme */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Gradient Style</Text>
-            <View style={styles.themesContainer}>
-              {GRADIENT_THEMES.map(theme => (
-                <TouchableOpacity
-                  key={theme.id}
-                  onPress={() => setGradientTheme(theme.id as any)}
-                  activeOpacity={0.7}
-                  style={styles.themeOption}
-                >
-                  <LinearGradient
-                    colors={theme.colors}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[
-                      styles.themePreview,
-                      gradientTheme === theme.id && styles.themePreviewActive,
-                    ]}
-                  />
-                  <Text style={styles.themeLabel}>{theme.label}</Text>
-                  {gradientTheme === theme.id && (
-                    <Ionicons name="checkmark-circle" size={20} color="#F4C07A" />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
           {/* NFC Badge */}
           <View style={styles.nfcInfo}>
             <Ionicons name="scan" size={20} color="#F4C07A" />
