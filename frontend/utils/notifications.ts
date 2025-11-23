@@ -73,6 +73,7 @@ export const scheduleAlarmNotification = async (alarm: Alarm): Promise<string | 
           requiresNFC: alarm.nfcRequired,
           alarmName: alarm.name,
           alarmTime: alarm.time,
+          customSoundUri: alarm.customSoundUri, // Áudio personalizado
         },
       },
       trigger: trigger as any,
