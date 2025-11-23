@@ -38,7 +38,6 @@ export default function AddAlarmScreen() {
   const [time, setTime] = useState(new Date());
   const [name, setName] = useState('');
   const [repeatDays, setRepeatDays] = useState<number[]>([]);
-  const [gradientTheme, setGradientTheme] = useState<'dawn' | 'amber' | 'warm'>('dawn');
   const [showTimePicker, setShowTimePicker] = useState(Platform.OS === 'ios');
 
   const toggleDay = (dayId: number) => {
