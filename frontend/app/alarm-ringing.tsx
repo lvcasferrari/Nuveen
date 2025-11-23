@@ -116,8 +116,8 @@ export default function AlarmRingingScreen() {
       if (tagId) {
         const settings = await getSettings();
         
-        // Use the new validation function for secure tag checking
-        const validation = validateNFCTag(tagId, settings.nfcTagId, 'lenient');
+        // Use the new validation function for secure tag checking (strict mode)
+        const validation = validateNFCTag(tagId, settings.nfcTagId, 'strict');
 
         if (validation.valid) {
           // Correct tag scanned
