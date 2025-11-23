@@ -60,9 +60,7 @@ export default function AlarmRingingScreen() {
         // Try online alarm sounds first
         { uri: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3' },
         { uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3' },
-        // Add local sound support (user can add sounds to assets/sounds/)
-        require('../assets/sounds/alarm.mp3').catch(() => null),
-      ].filter(Boolean);
+      ];
 
       let playedSuccessfully = false;
 
