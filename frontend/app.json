@@ -11,9 +11,17 @@
       "supportsTablet": true,
       "infoPlist": {
         "NFCReaderUsageDescription": "Nuveen needs NFC access to scan your tag and stop alarms.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": [
+          "audio",
+          "processing",
+          "fetch"
+        ]
       },
-      "bundleIdentifier": "com.nuveen.alarm"
+      "bundleIdentifier": "com.nuveen.alarm",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "permissions": [
