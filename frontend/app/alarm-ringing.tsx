@@ -46,15 +46,20 @@ export default function AlarmRingingScreen() {
 
   const playAlarmSound = async () => {
     try {
-      // Set audio mode
+      // Set audio mode for alarm (high priority, plays even when device is muted)
       await Audio.setAudioModeAsync({
         staysActiveInBackground: true,
-        interruptionHandlingIOS: Audio.InterruptionHandlingIOS.DuckOthers,
+        playsInSilentModeIOS: true, // Critical: play even in silent mode
+        interruptionModeIOS: 1, // Mix with others
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
       });
 
-      // Try to use a system notification sound first (more reliable)
+      // Multiple alarm sound options (fallback chain)
       const soundAssets = [
-        { uri: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3' }, // Fallback online
+        // Try online alarm sounds first
+        { uri: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3' },
+        { uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3' },
       ];
 
       let playedSuccessfully = false;
@@ -62,31 +67,29 @@ export default function AlarmRingingScreen() {
       for (const asset of soundAssets) {
         try {
           const { sound: newSound } = await Audio.Sound.createAsync(asset, {
-            shouldPlay: false, // Don't auto-play, we'll start it manually
-            isLooping: true,
-            volume: 1.0,
+            shouldPlay: true, // Auto-play immediately
+            isLooping: true, // Loop continuously
+            volume: 1.0, // Maximum volume
+            rate: 1.0,
+            shouldCorrectPitch: true,
           });
 
-          // Wait a moment before playing
-          await new Promise(resolve => setTimeout(resolve, 200));
-
-          // Start playback
-          await newSound.playAsync();
           setSound(newSound);
           playedSuccessfully = true;
-          console.log('Alarm sound started successfully');
+          console.log('✅ Alarm sound started successfully');
           break;
         } catch (err) {
-          console.warn('Failed to play sound from asset:', err);
+          console.warn('⚠️ Failed to play sound from asset:', err);
           continue;
         }
       }
 
       if (!playedSuccessfully) {
-        console.warn('Could not play alarm sound from any source');
+        console.warn('⚠️ Could not play alarm sound from any source');
+        // Still continue with vibration even if sound fails
       }
     } catch (error) {
-      console.error('Error setting up alarm sound:', error);
+      console.error('❌ Error setting up alarm sound:', error);
     }
   };
 
@@ -113,8 +116,8 @@ export default function AlarmRingingScreen() {
       if (tagId) {
         const settings = await getSettings();
         
-        // Use the new validation function for secure tag checking
-        const validation = validateNFCTag(tagId, settings.nfcTagId, 'lenient');
+        // Use the new validation function for secure tag checking (strict mode)
+        const validation = validateNFCTag(tagId, settings.nfcTagId, 'strict');
 
         if (validation.valid) {
           // Correct tag scanned

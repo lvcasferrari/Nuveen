@@ -7,6 +7,7 @@ import {
   ScrollView,
   Switch,
   Alert,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { GradientBackground } from '../components/GradientBackground';
@@ -131,6 +132,19 @@ export default function SettingsScreen() {
                     </Text>
                   </View>
                 </View>
+              </View>
+
+              {/* NFC Configuration Instructions */}
+              <View style={styles.instructionsBox}>
+                <Text style={styles.instructionsTitle}>📱 Como Configurar sua Tag NFC</Text>
+                <Text style={styles.instructionsText}>
+                  1. Use o app "NFC Tools" para escrever na sua tag{'\n'}
+                  2. Selecione "Write" → "Add a record" → "Text"{'\n'}
+                  3. Digite exatamente:{'\n'}
+                  <Text style={styles.instructionsCode}>NUVEEN:ALARM:2025:SECRET_KEY_12345</Text>{'\n'}
+                  4. Aproxime a tag e clique em "Write"{'\n'}
+                  5. Depois, volte aqui e escaneie sua tag configurada
+                </Text>
               </View>
               
               <View style={styles.cardActions}>
@@ -425,5 +439,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#0C0C0C',
     fontWeight: '500',
+  },
+  instructionsBox: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: 'rgba(244, 192, 122, 0.1)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(244, 192, 122, 0.3)',
+  },
+  instructionsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0C0C0C',
+    marginBottom: 8,
+  },
+  instructionsText: {
+    fontSize: 13,
+    color: '#0C0C0C',
+    lineHeight: 20,
+    opacity: 0.8,
+  },
+  instructionsCode: {
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#EAA85B',
+    backgroundColor: 'rgba(12, 12, 12, 0.05)',
+    paddingHorizontal: 4,
   },
 });
