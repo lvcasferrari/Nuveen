@@ -57,23 +57,32 @@ export const scheduleAlarmNotification = async (alarm: Alarm): Promise<string | 
       repeats: alarm.repeatDays.length > 0,
     };
 
+    // Configure notification for maximum visibility and persistence
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
         title: alarm.name || 'Nuveen Alarm',
         body: 'Scan your NFC tag to stop the alarm',
-        sound: 'default',
+        sound: 'default', // Critical: play sound even in background
         priority: Notifications.AndroidNotificationPriority.MAX,
+        vibrate: [0, 250, 250, 250], // Vibration pattern
+        sticky: true, // Make notification persistent (Android)
+        autoDismiss: false, // Don't auto-dismiss (Android)
+        categoryIdentifier: 'alarm', // Custom category for iOS
         data: {
           alarmId: alarm.id,
           requiresNFC: alarm.nfcRequired,
+          alarmName: alarm.name,
+          alarmTime: alarm.time,
+          customSoundUri: alarm.customSoundUri, // Áudio personalizado
         },
       },
       trigger: trigger as any,
     });
 
+    console.log(`✅ Alarm scheduled: ${alarm.name} at ${alarm.time} (ID: ${notificationId})`);
     return notificationId;
   } catch (error) {
-    console.error('Error scheduling alarm notification:', error);
+    console.error('❌ Error scheduling alarm notification:', error);
     return null;
   }
 };

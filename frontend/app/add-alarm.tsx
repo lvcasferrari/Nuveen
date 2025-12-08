@@ -7,6 +7,7 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { GradientBackground } from '../components/GradientBackground';
@@ -15,7 +16,9 @@ import { useAlarms } from '../contexts/AlarmContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Platform } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import { playMediumFeedback } from '../utils/feedback';
 
 const WEEKDAYS = [
   { id: 0, label: 'Sun' },
@@ -27,26 +30,58 @@ const WEEKDAYS = [
   { id: 6, label: 'Sat' },
 ];
 
-const GRADIENT_THEMES = [
-  { id: 'dawn', label: 'Dawn', colors: ['#F4C07A', '#EAA85B'] },
-  { id: 'amber', label: 'Amber', colors: ['#EAA85B', '#F4C07A'] },
-  { id: 'warm', label: 'Warm', colors: ['#F4C07A', '#D7D3CC'] },
-];
-
 export default function AddAlarmScreen() {
   const { addAlarm } = useAlarms();
   const [time, setTime] = useState(new Date());
   const [name, setName] = useState('');
   const [repeatDays, setRepeatDays] = useState<number[]>([]);
-  const [gradientTheme, setGradientTheme] = useState<'dawn' | 'amber' | 'warm'>('dawn');
   const [showTimePicker, setShowTimePicker] = useState(Platform.OS === 'ios');
+  const [customSoundUri, setCustomSoundUri] = useState<string | undefined>();
+  const [soundName, setSoundName] = useState<string | undefined>();
 
   const toggleDay = (dayId: number) => {
+    playMediumFeedback();
     if (repeatDays.includes(dayId)) {
       setRepeatDays(repeatDays.filter(d => d !== dayId));
     } else {
       setRepeatDays([...repeatDays, dayId].sort());
     }
+  };
+
+  const handlePickAudio = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'audio/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        
+        // Copiar arquivo para diretório do app
+        const fileName = `alarm_sound_${Date.now()}.${asset.name.split('.').pop()}`;
+        const destPath = `${FileSystem.documentDirectory}${fileName}`;
+        
+        await FileSystem.copyAsync({
+          from: asset.uri,
+          to: destPath,
+        });
+
+        setCustomSoundUri(destPath);
+        setSoundName(asset.name);
+        playMediumFeedback();
+        Alert.alert('Sucesso', `Áudio "${asset.name}" selecionado!`);
+      }
+    } catch (error) {
+      console.error('Error picking audio:', error);
+      Alert.alert('Erro', 'Não foi possível selecionar o áudio');
+    }
+  };
+
+  const handleRemoveAudio = () => {
+    setCustomSoundUri(undefined);
+    setSoundName(undefined);
+    playMediumFeedback();
   };
 
   const handleSave = async () => {
@@ -61,7 +96,9 @@ export default function AddAlarmScreen() {
       repeatDays,
       enabled: true,
       nfcRequired: true,
-      gradientTheme,
+      gradientTheme: 'dawn' as const,
+      customSoundUri,
+      soundName,
     };
 
     await addAlarm(alarm);
@@ -162,32 +199,52 @@ export default function AddAlarmScreen() {
             </View>
           </View>
 
-          {/* Gradient Theme */}
+          {/* Alarm Sound */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Gradient Style</Text>
-            <View style={styles.themesContainer}>
-              {GRADIENT_THEMES.map(theme => (
-                <TouchableOpacity
-                  key={theme.id}
-                  onPress={() => setGradientTheme(theme.id as any)}
-                  activeOpacity={0.7}
-                  style={styles.themeOption}
-                >
-                  <LinearGradient
-                    colors={theme.colors}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[
-                      styles.themePreview,
-                      gradientTheme === theme.id && styles.themePreviewActive,
-                    ]}
-                  />
-                  <Text style={styles.themeLabel}>{theme.label}</Text>
-                  {gradientTheme === theme.id && (
-                    <Ionicons name="checkmark-circle" size={20} color="#F4C07A" />
-                  )}
-                </TouchableOpacity>
-              ))}
+            <Text style={styles.sectionLabel}>Alarm Sound</Text>
+            <View style={styles.audioSection}>
+              <View style={styles.audioInfo}>
+                <Ionicons 
+                  name={customSoundUri ? "musical-notes" : "volume-high"} 
+                  size={24} 
+                  color="#F4C07A" 
+                />
+                <View style={styles.audioText}>
+                  <Text style={styles.audioLabel}>
+                    {customSoundUri ? 'Custom Audio' : 'Default Sound'}
+                  </Text>
+                  <Text style={styles.audioSubtext}>
+                    {customSoundUri ? soundName : 'Standard alarm sound'}
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.audioButtons}>
+                {customSoundUri ? (
+                  <TouchableOpacity
+                    onPress={handleRemoveAudio}
+                    style={styles.removeAudioButton}
+                  >
+                    <Ionicons name="close-circle" size={20} color="#FF4444" />
+                    <Text style={styles.removeAudioText}>Remove</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    onPress={handlePickAudio}
+                    activeOpacity={0.8}
+                  >
+                    <LinearGradient
+                      colors={['#F4C07A', '#EAA85B']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.pickAudioButton}
+                    >
+                      <Ionicons name="add" size={20} color="#0C0C0C" />
+                      <Text style={styles.pickAudioText}>Choose Audio</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           </View>
 
@@ -207,7 +264,7 @@ export default function AddAlarmScreen() {
               end={{ x: 1, y: 0 }}
               style={styles.saveButton}
             >
-              <Text style={styles.saveButtonText}>Save Alarm</Text>
+              <Text style={styles.saveButtonText}>Create Alarm</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -250,18 +307,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#0C0C0C',
-    marginBottom: 12,
+    marginBottom: 16,
     textTransform: 'uppercase',
     letterSpacing: 1,
-    opacity: 0.6,
   },
   timePicker: {
-    backgroundColor: 'rgba(12, 12, 12, 0.1)',
-    borderRadius: 16,
+    height: 120,
   },
   timeDisplay: {
-    backgroundColor: 'rgba(12, 12, 12, 0.1)',
-    padding: 24,
+    backgroundColor: 'rgba(12, 12, 12, 0.05)',
+    padding: 20,
     borderRadius: 16,
     alignItems: 'center',
   },
@@ -271,8 +326,9 @@ const styles = StyleSheet.create({
     color: '#0C0C0C',
   },
   input: {
-    backgroundColor: 'rgba(12, 12, 12, 0.1)',
-    padding: 16,
+    backgroundColor: 'rgba(12, 12, 12, 0.05)',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderRadius: 16,
     fontSize: 16,
     color: '#0C0C0C',
@@ -292,42 +348,72 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#0C0C0C',
-    opacity: 0.4,
+    opacity: 0.5,
   },
   dayTextActive: {
     opacity: 1,
   },
-  themesContainer: {
-    gap: 12,
+  audioSection: {
+    backgroundColor: 'rgba(12, 12, 12, 0.05)',
+    borderRadius: 16,
+    padding: 16,
   },
-  themeOption: {
+  audioInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(12, 12, 12, 0.05)',
-    padding: 16,
-    borderRadius: 16,
+    marginBottom: 12,
   },
-  themePreview: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    marginRight: 16,
-  },
-  themePreviewActive: {
-    borderWidth: 3,
-    borderColor: '#0C0C0C',
-  },
-  themeLabel: {
+  audioText: {
+    marginLeft: 12,
     flex: 1,
+  },
+  audioLabel: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#0C0C0C',
+    marginBottom: 4,
+  },
+  audioSubtext: {
+    fontSize: 14,
+    color: '#0C0C0C',
+    opacity: 0.6,
+  },
+  audioButtons: {
+    marginTop: 8,
+  },
+  pickAudioButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 44,
+    borderRadius: 22,
+    paddingHorizontal: 20,
+  },
+  pickAudioText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0C0C0C',
+    marginLeft: 8,
+  },
+  removeAudioButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 68, 68, 0.1)',
+  },
+  removeAudioText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FF4444',
+    marginLeft: 8,
   },
   nfcInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(12, 12, 12, 0.1)',
+    backgroundColor: 'rgba(244, 192, 122, 0.1)',
     padding: 16,
     borderRadius: 16,
     marginTop: 16,
@@ -339,19 +425,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   footer: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
+    padding: 24,
+    paddingBottom: 0,
   },
   saveButton: {
-    height: 64,
-    borderRadius: 32,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#F4C07A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
   },
   saveButtonText: {
     fontSize: 18,
