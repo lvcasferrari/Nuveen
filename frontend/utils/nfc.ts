@@ -2,10 +2,13 @@ import { Platform } from 'react-native';
 
 // NFC is only available on native platforms
 let NfcManager: any = null;
+let NfcTech: any = null;
 
 if (Platform.OS !== 'web') {
   try {
-    NfcManager = require('react-native-nfc-manager').default;
+    const nfcModule = require('react-native-nfc-manager');
+    NfcManager = nfcModule.default;
+    NfcTech = nfcModule.NfcTech;
   } catch (e) {
     console.warn('react-native-nfc-manager not available');
   }
@@ -21,11 +24,16 @@ export const isNFCAvailable = async (): Promise<boolean> => {
     if (!isSupported) {
       return false;
     }
-    
-    // Try to start NFC manager
+
     await NfcManager.start();
-    const isEnabled = await NfcManager.isEnabled();
-    return isEnabled;
+
+    // isEnabled() only exists on Android; on iOS NFC is always available if supported
+    if (Platform.OS === 'android') {
+      const isEnabled = await NfcManager.isEnabled();
+      return isEnabled;
+    }
+
+    return true;
   } catch (error) {
     console.error('Error checking NFC availability:', error);
     return false;
@@ -33,7 +41,7 @@ export const isNFCAvailable = async (): Promise<boolean> => {
 };
 
 export const readNFCTag = async (): Promise<string | null> => {
-  if (Platform.OS === 'web' || !NfcManager) {
+  if (Platform.OS === 'web' || !NfcManager || !NfcTech) {
     throw new Error('NFC is not available on this platform');
   }
 
@@ -43,14 +51,10 @@ export const readNFCTag = async (): Promise<string | null> => {
       throw new Error('NFC is not available on this device');
     }
 
-    // Start NFC manager if not already started
-    await NfcManager.start();
+    const techList = Platform.OS === 'ios'
+      ? [NfcTech.Ndef]
+      : [NfcTech.Ndef, NfcTech.IsoDep, NfcTech.NfcA];
 
-    // Request NFC technology with timeout
-    const techList = Platform.OS === 'ios' 
-      ? [NfcManager.NfcTech.Ndef]
-      : [NfcManager.NfcTech.Ndef, NfcManager.NfcTech.IsoDep, NfcManager.NfcTech.NfcA];
-    
     await NfcManager.requestTechnology(techList, {
       isAlertDialogEnabled: true,
       alertMessage: 'Hold your Nuveen tag near your phone to scan',
@@ -59,7 +63,7 @@ export const readNFCTag = async (): Promise<string | null> => {
     // Get tag with retries
     let tag = null;
     let retries = 3;
-    
+
     while (!tag && retries > 0) {
       tag = await NfcManager.getTag();
       if (!tag) {
@@ -69,7 +73,7 @@ export const readNFCTag = async (): Promise<string | null> => {
         }
       }
     }
-    
+
     // Cancel technology request
     try {
       await NfcManager.cancelTechnologyRequest();
@@ -109,7 +113,7 @@ export const requestNFCPermissions = async (): Promise<boolean> => {
       // Android NFC doesn't require runtime permissions
       return true;
     } else if (Platform.OS === 'ios') {
-      // iOS requires NFC usage description in Info.plist
+      // iOS requires NFC usage description in Info.plist + entitlement
       return true;
     }
     return false;
@@ -159,7 +163,7 @@ export const validateNFCTag = (
   if (enabledMode === 'lenient') {
     const scannedChecksum = generateNFCChecksum(scannedTagId);
     const configuredChecksum = generateNFCChecksum(configuredTagId);
-    
+
     if (scannedChecksum === configuredChecksum) {
       return { valid: true, reason: 'Tag checksum matches' };
     }
