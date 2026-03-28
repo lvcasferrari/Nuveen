@@ -25,8 +25,7 @@
       },
       "bundleIdentifier": "com.nuveen.alarm",
       "entitlements": {
-        "com.apple.developer.nfc.readersession.formats": ["TAG"],
-        "com.apple.developer.usernotifications.time-sensitive": true
+        "com.apple.developer.nfc.readersession.formats": ["TAG"]
       },
       "config": {
         "usesNonExemptEncryption": false
