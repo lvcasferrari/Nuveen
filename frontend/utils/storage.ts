@@ -26,11 +26,21 @@ export interface WakeLog {
   wakeTime: string;
 }
 
+export interface ActiveAlarm {
+  alarmId: string;
+  alarmName: string;
+  alarmTime: string;       // HH:mm
+  customSoundUri?: string;
+  nfcFailedAttempts: number;
+  startedAt: string;       // ISO timestamp
+}
+
 const STORAGE_KEYS = {
   ALARMS: '@nuveen:alarms',
   SETTINGS: '@nuveen:settings',
   WAKE_LOGS: '@nuveen:wake_logs',
   ONBOARDING_COMPLETE: '@nuveen:onboarding_complete',
+  ACTIVE_ALARM: '@nuveen:active_alarm',
 };
 
 // Alarms
@@ -139,5 +149,45 @@ export const setOnboardingComplete = async (): Promise<void> => {
     await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETE, 'true');
   } catch (error) {
     console.error('Error setting onboarding:', error);
+  }
+};
+
+// Active Alarm State
+export const setActiveAlarm = async (alarm: ActiveAlarm): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.ACTIVE_ALARM, JSON.stringify(alarm));
+  } catch (error) {
+    console.error('Error setting active alarm:', error);
+  }
+};
+
+export const getActiveAlarm = async (): Promise<ActiveAlarm | null> => {
+  try {
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_ALARM);
+    return data ? JSON.parse(data) : null;
+  } catch (error) {
+    console.error('Error getting active alarm:', error);
+    return null;
+  }
+};
+
+export const clearActiveAlarm = async (): Promise<void> => {
+  try {
+    await AsyncStorage.removeItem(STORAGE_KEYS.ACTIVE_ALARM);
+  } catch (error) {
+    console.error('Error clearing active alarm:', error);
+  }
+};
+
+export const incrementNfcFailedAttempts = async (): Promise<number> => {
+  try {
+    const active = await getActiveAlarm();
+    if (!active) return 0;
+    const updated = { ...active, nfcFailedAttempts: active.nfcFailedAttempts + 1 };
+    await setActiveAlarm(updated);
+    return updated.nfcFailedAttempts;
+  } catch (error) {
+    console.error('Error incrementing NFC failed attempts:', error);
+    return 0;
   }
 };
