@@ -1,9 +1,8 @@
 import React, { useEffect, useRef } from 'react';
-import { Stack } from 'expo-router';
-import { router } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { AlarmProvider } from '../contexts/AlarmContext';
 import { GradientProvider } from '../contexts/GradientContext';
-import { requestNotificationPermissions } from '../utils/notifications';
+import { requestNotificationPermissions, setupNotificationChannel } from '../utils/notifications';
 import { getActiveAlarm } from '../utils/storage';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
@@ -13,8 +12,8 @@ export default function RootLayout() {
   const notificationSubscription = useRef<Notifications.Subscription | null>(null);
 
   useEffect(() => {
-    // Request permissions when app loads
     requestNotificationPermissions().catch(console.error);
+    setupNotificationChannel().catch(console.error);
 
     // Restore active alarm session if one was interrupted (e.g. app killed while alarm was ringing)
     const checkActiveAlarm = async () => {
@@ -31,7 +30,6 @@ export default function RootLayout() {
         });
       }
     };
-    // Defer slightly to allow the navigator stack to mount before replacing
     const restoreTimer = setTimeout(() => checkActiveAlarm(), 200);
 
     // Navigate to alarm-ringing when user taps an alarm notification

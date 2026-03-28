@@ -1,9 +1,4 @@
 import * as Haptics from 'expo-haptics';
-import { Audio } from 'expo-av';
-
-/**
- * Provide haptic and audio feedback for user interactions
- */
 
 // Play a light tap feedback sound
 export const playTapSound = async () => {

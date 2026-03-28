@@ -16,11 +16,14 @@
           "audio",
           "processing",
           "fetch"
+        ],
+        "BGTaskSchedulerPermittedIdentifiers": [
+          "com.nuveen.alarm.background"
         ]
       },
       "bundleIdentifier": "com.nuveen.alarm",
       "entitlements": {
-        "com.apple.developer.nfc.readersession.formats": ["NDEF", "TAG"]
+        "com.apple.developer.nfc.readersession.formats": ["TAG"]
       },
       "config": {
         "usesNonExemptEncryption": false
@@ -50,7 +53,8 @@
       [
         "expo-notifications",
         {
-          "color": "#F4C07A"
+          "color": "#F4C07A",
+          "sounds": ["./assets/sounds/alarm.mp3"]
         }
       ]
     ],

@@ -11,6 +11,7 @@ import { router } from 'expo-router';
 import { GradientBackground } from '../components/GradientBackground';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAlarms } from '../contexts/AlarmContext';
+import { Alarm } from '../utils/storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -25,7 +26,7 @@ export default function AlarmsScreen() {
     return days.map(d => dayNames[d]).join(', ');
   };
 
-  const renderAlarmItem = ({ item }: { item: any }) => (
+  const renderAlarmItem = ({ item }: { item: Alarm }) => (
     <TouchableOpacity
       onPress={() => router.push({ pathname: '/edit-alarm', params: { id: item.id } })}
       activeOpacity={0.8}
@@ -157,9 +158,7 @@ const styles = StyleSheet.create({
     padding: 24,
     gap: 16,
   },
-  alarmItem: {
-    marginBottom: 16,
-  },
+  alarmItem: {},
   alarmCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',

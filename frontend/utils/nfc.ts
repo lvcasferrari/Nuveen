@@ -103,26 +103,6 @@ export const readNFCTag = async (): Promise<string | null> => {
   }
 };
 
-export const requestNFCPermissions = async (): Promise<boolean> => {
-  if (Platform.OS === 'web' || !NfcManager) {
-    return false;
-  }
-
-  try {
-    if (Platform.OS === 'android') {
-      // Android NFC doesn't require runtime permissions
-      return true;
-    } else if (Platform.OS === 'ios') {
-      // iOS requires NFC usage description in Info.plist + entitlement
-      return true;
-    }
-    return false;
-  } catch (error) {
-    console.error('Error requesting NFC permissions:', error);
-    return false;
-  }
-};
-
 /**
  * Generate a secure checksum for NFC tag validation
  * This helps ensure only properly configured tags can be used

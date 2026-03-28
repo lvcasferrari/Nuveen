@@ -18,6 +18,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { getSettings, saveSettings } from '../utils/storage';
 import { readNFCTag, isNFCAvailable } from '../utils/nfc';
 
+const GRADIENT_STYLES = [
+  { id: 'dawn', label: 'Dawn', colors: ['#F4C07A', '#EAA85B', '#F4C07A'] },
+  { id: 'amber', label: 'Amber', colors: ['#EAA85B', '#F4C07A', '#EAA85B'] },
+  { id: 'warm', label: 'Warm', colors: ['#F4C07A', '#D7D3CC', '#F4C07A'] },
+  { id: 'dark', label: 'Dark', colors: ['#0C0C0C', '#1A1A1A', '#0C0C0C'] },
+] as const;
+
 export default function SettingsScreen() {
   const { setGradientStyle } = useGradient();
   const [settings, setSettings] = useState({
@@ -97,13 +104,6 @@ export default function SettingsScreen() {
     setSettings(newSettings);
     setGradientStyle(gradientStyle);
   };
-
-  const GRADIENT_STYLES = [
-    { id: 'dawn', label: 'Dawn', colors: ['#F4C07A', '#EAA85B', '#F4C07A'] },
-    { id: 'amber', label: 'Amber', colors: ['#EAA85B', '#F4C07A', '#EAA85B'] },
-    { id: 'warm', label: 'Warm', colors: ['#F4C07A', '#D7D3CC', '#F4C07A'] },
-    { id: 'dark', label: 'Dark', colors: ['#0C0C0C', '#1A1A1A', '#0C0C0C'] },
-  ] as const;
 
   return (
     <GradientBackground theme="dawn" animated>
