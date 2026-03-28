@@ -18,6 +18,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { playMediumFeedback } from '../utils/feedback';
+import { useThemeColors } from '../contexts/GradientContext';
 
 const WEEKDAYS = [
   { id: 0, label: 'Sun' },
@@ -58,6 +59,7 @@ export default function AlarmForm({
   initialSoundName,
   onSubmit,
 }: Props) {
+  const { text, textFaded, card } = useThemeColors();
   const [time, setTime] = useState(initialTime ?? new Date());
   const [name, setName] = useState(initialName);
   const [repeatDays, setRepeatDays] = useState<number[]>(initialRepeatDays);
@@ -117,16 +119,16 @@ export default function AlarmForm({
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="close" size={24} color="#0C0C0C" />
+            <Ionicons name="close" size={24} color={text} />
           </TouchableOpacity>
-          <Text style={styles.title}>{title}</Text>
+          <Text style={[styles.title, { color: text }]}>{title}</Text>
           <View style={{ width: 44 }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
           {/* Time */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Time</Text>
+            <Text style={[styles.sectionLabel, { color: text }]}>Time</Text>
             {Platform.OS === 'ios' ? (
               <DateTimePicker
                 value={time}
@@ -138,7 +140,7 @@ export default function AlarmForm({
               />
             ) : (
               <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.timeDisplay}>
-                <Text style={styles.timeText}>
+                <Text style={[styles.timeText, { color: text }]}>
                   {time.getHours().toString().padStart(2, '0')}:{time.getMinutes().toString().padStart(2, '0')}
                 </Text>
               </TouchableOpacity>
@@ -155,13 +157,13 @@ export default function AlarmForm({
 
           {/* Name */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Alarm Name</Text>
+            <Text style={[styles.sectionLabel, { color: text }]}>Alarm Name</Text>
             <TextInput
               value={name}
               onChangeText={setName}
               placeholder="Morning Ritual"
-              placeholderTextColor="rgba(12, 12, 12, 0.3)"
-              style={styles.input}
+              placeholderTextColor={textFaded}
+              style={[styles.input, { color: text, backgroundColor: card }]}
             />
           </View>
 
@@ -195,8 +197,8 @@ export default function AlarmForm({
               <View style={styles.audioInfo}>
                 <Ionicons name={customSoundUri ? 'musical-notes' : 'volume-high'} size={24} color="#F4C07A" />
                 <View style={styles.audioText}>
-                  <Text style={styles.audioLabel}>{customSoundUri ? 'Custom Sound' : 'Default Sound'}</Text>
-                  <Text style={styles.audioSubtext}>{customSoundUri ? soundName : 'Nuveen alarm tone'}</Text>
+                  <Text style={[styles.audioLabel, { color: text }]}>{customSoundUri ? 'Custom Sound' : 'Default Sound'}</Text>
+                  <Text style={[styles.audioSubtext, { color: textFaded }]}>{customSoundUri ? soundName : 'Nuveen alarm tone'}</Text>
                 </View>
               </View>
               {customSoundUri ? (
@@ -222,7 +224,7 @@ export default function AlarmForm({
 
           <View style={styles.nfcInfo}>
             <Ionicons name="scan" size={20} color="#F4C07A" />
-            <Text style={styles.nfcText}>NFC scan required to stop alarm</Text>
+            <Text style={[styles.nfcText, { color: text }]}>NFC scan required to stop alarm</Text>
           </View>
         </ScrollView>
 

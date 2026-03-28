@@ -42,6 +42,7 @@ export const requestNotificationPermissions = async (): Promise<boolean> => {
           allowBadge: false,
           allowSound: true,
           allowCriticalAlerts: false,
+          allowsTimeSensitiveNotifications: true,
         },
       });
       finalStatus = status;

@@ -64,17 +64,17 @@ export default function AlarmRingingScreen() {
     try {
       await Audio.setAudioModeAsync({
         staysActiveInBackground: true,
-        playsInSilentModeIOS: true,
-        interruptionModeIOS: 1,
-        shouldDuckAndroid: false,
+        playsInSilentModeIOS: true,   // plays even with mute switch on
+        interruptionModeIOS: 1,        // DO_NOT_MIX — takes over audio completely
+        allowsRecordingIOS: false,
+        shouldDuckAndroid: false,      // do not lower volume for other apps
         playThroughEarpieceAndroid: false,
       });
 
-      // Priority: custom sound → bundled default → online fallback
+      // Priority: custom sound → bundled default
       const sources = [
         ...(customSoundUri ? [{ uri: customSoundUri }] : []),
         require('../assets/sounds/alarm.mp3'),
-        { uri: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3' },
       ];
 
       for (const source of sources) {

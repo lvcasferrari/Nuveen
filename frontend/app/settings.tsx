@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { GradientBackground } from '../components/GradientBackground';
-import { useGradient } from '../contexts/GradientContext';
+import { useGradient, useThemeColors } from '../contexts/GradientContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,6 +29,7 @@ const GRADIENT_STYLES = [
 
 export default function SettingsScreen() {
   const { setGradientStyle } = useGradient();
+  const { text, textFaded, card } = useThemeColors();
   const [settings, setSettings] = useState({
     nfcTags: [] as NfcTag[],
     theme: 'auto' as 'light' | 'dark' | 'auto',
@@ -131,17 +132,17 @@ export default function SettingsScreen() {
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#0C0C0C" />
+          <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: card }]}>
+            <Ionicons name="arrow-back" size={24} color={text} />
           </TouchableOpacity>
-          <Text style={styles.title}>Settings</Text>
+          <Text style={[styles.title, { color: text }]}>Settings</Text>
           <View style={{ width: 44 }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
           {/* NFC Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>NFC Tags</Text>
+            <Text style={[styles.sectionTitle, { color: textFaded }]}>NFC Tags</Text>
             <View style={styles.card}>
               {settings.nfcTags.length === 0 && (
                 <Text style={styles.emptyTagsText}>No tags configured</Text>
@@ -151,7 +152,7 @@ export default function SettingsScreen() {
                   <Ionicons name="scan" size={20} color="#F4C07A" />
                   {editingTagId === tag.id ? (
                     <TextInput
-                      style={styles.tagNameInput}
+                      style={[styles.tagNameInput, { color: text }]}
                       value={editingName}
                       onChangeText={setEditingName}
                       autoFocus
@@ -164,8 +165,8 @@ export default function SettingsScreen() {
                       style={styles.tagNameButton}
                       onPress={() => { setEditingTagId(tag.id); setEditingName(tag.name); }}
                     >
-                      <Text style={styles.tagName}>{tag.name}</Text>
-                      <Ionicons name="pencil-outline" size={14} color="rgba(12,12,12,0.4)" />
+                      <Text style={[styles.tagName, { color: text }]}>{tag.name}</Text>
+                      <Ionicons name="pencil-outline" size={14} color={textFaded} />
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity onPress={() => handleDeleteTag(tag.id)} style={styles.tagDeleteButton}>
@@ -191,14 +192,14 @@ export default function SettingsScreen() {
 
           {/* Preferences Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Preferences</Text>
+            <Text style={[styles.sectionTitle, { color: textFaded }]}>Preferences</Text>
             <View style={styles.card}>
               <View style={styles.settingRow}>
                 <View style={styles.settingInfo}>
                   <Ionicons name="phone-portrait" size={24} color="#F4C07A" />
                   <View style={styles.settingText}>
-                    <Text style={styles.settingLabel}>Vibration</Text>
-                    <Text style={styles.settingDescription}>Vibrate when alarm rings</Text>
+                    <Text style={[styles.settingLabel, { color: text }]}>Vibration</Text>
+                    <Text style={[styles.settingDescription, { color: textFaded }]}>Vibrate when alarm rings</Text>
                   </View>
                 </View>
                 <Switch
@@ -214,8 +215,8 @@ export default function SettingsScreen() {
                 <View style={styles.settingInfo}>
                   <Ionicons name="color-palette" size={24} color="#F4C07A" />
                   <View style={styles.settingText}>
-                    <Text style={styles.settingLabel}>Gradient Style</Text>
-                    <Text style={styles.settingDescription}>Choose your theme color</Text>
+                    <Text style={[styles.settingLabel, { color: text }]}>Gradient Style</Text>
+                    <Text style={[styles.settingDescription, { color: textFaded }]}>Choose your theme color</Text>
                   </View>
                 </View>
               </View>
@@ -240,7 +241,7 @@ export default function SettingsScreen() {
                         <Ionicons name="checkmark-circle" size={24} color="#fff" />
                       )}
                     </LinearGradient>
-                    <Text style={styles.gradientLabel}>{gradient.label}</Text>
+                    <Text style={[styles.gradientLabel, { color: text }]}>{gradient.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -249,23 +250,23 @@ export default function SettingsScreen() {
 
           {/* About Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>About</Text>
+            <Text style={[styles.sectionTitle, { color: textFaded }]}>About</Text>
             <View style={styles.card}>
               <View style={styles.aboutRow}>
-                <Text style={styles.aboutLabel}>Version</Text>
-                <Text style={styles.aboutValue}>1.0.0</Text>
+                <Text style={[styles.aboutLabel, { color: textFaded }]}>Version</Text>
+                <Text style={[styles.aboutValue, { color: text }]}>1.0.0</Text>
               </View>
               <View style={styles.aboutRow}>
-                <Text style={styles.aboutLabel}>Build</Text>
-                <Text style={styles.aboutValue}>2025.01</Text>
+                <Text style={[styles.aboutLabel, { color: textFaded }]}>Build</Text>
+                <Text style={[styles.aboutValue, { color: text }]}>2025.01</Text>
               </View>
             </View>
           </View>
 
           {/* Branding */}
           <View style={styles.branding}>
-            <Text style={styles.brandText}>nuveen</Text>
-            <Text style={styles.brandSubtext}>Wake with intention</Text>
+            <Text style={[styles.brandText, { color: text }]}>nuveen</Text>
+            <Text style={[styles.brandSubtext, { color: textFaded }]}>Wake with intention</Text>
           </View>
         </ScrollView>
       </SafeAreaView>

@@ -11,12 +11,14 @@ import { router } from 'expo-router';
 import { GradientBackground } from '../components/GradientBackground';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAlarms } from '../contexts/AlarmContext';
+import { useThemeColors } from '../contexts/GradientContext';
 import { Alarm } from '../utils/storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function AlarmsScreen() {
   const { alarms, toggleAlarm, deleteAlarm } = useAlarms();
+  const { text, textFaded, textLight, card } = useThemeColors();
 
   const formatRepeatDays = (days: number[]) => {
     if (days.length === 0) return 'Once';
@@ -39,14 +41,14 @@ export default function AlarmsScreen() {
         style={styles.alarmCard}
       >
         <View style={styles.alarmInfo}>
-          <Text style={[styles.alarmTime, !item.enabled && styles.disabledText]}>
+          <Text style={[styles.alarmTime, { color: text }, !item.enabled && styles.disabledText]}>
             {item.time}
           </Text>
-          <Text style={[styles.alarmName, !item.enabled && styles.disabledText]}>
+          <Text style={[styles.alarmName, { color: text }, !item.enabled && styles.disabledText]}>
             {item.name || 'Alarm'}
           </Text>
           <View style={styles.alarmMeta}>
-            <Text style={[styles.repeatText, !item.enabled && styles.disabledText]}>
+            <Text style={[styles.repeatText, { color: textFaded }, !item.enabled && styles.disabledText]}>
               {formatRepeatDays(item.repeatDays)}
             </Text>
             {item.nfcRequired && (
@@ -82,13 +84,10 @@ export default function AlarmsScreen() {
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backButton}
-          >
-            <Ionicons name="arrow-back" size={24} color="#0C0C0C" />
+          <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: card }]}>
+            <Ionicons name="arrow-back" size={24} color={text} />
           </TouchableOpacity>
-          <Text style={styles.title}>Alarms</Text>
+          <Text style={[styles.title, { color: text }]}>Alarms</Text>
           <View style={{ width: 44 }} />
         </View>
 
@@ -96,8 +95,8 @@ export default function AlarmsScreen() {
         {alarms.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="alarm-outline" size={80} color="rgba(12, 12, 12, 0.2)" />
-            <Text style={styles.emptyText}>No alarms yet</Text>
-            <Text style={styles.emptySubtext}>Create your first alarm to get started</Text>
+            <Text style={[styles.emptyText, { color: textFaded }]}>No alarms yet</Text>
+            <Text style={[styles.emptySubtext, { color: textLight }]}>Create your first alarm to get started</Text>
           </View>
         ) : (
           <FlatList

@@ -11,11 +11,13 @@ import { GradientBackground } from '../components/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAlarms } from '../contexts/AlarmContext';
+import { useThemeColors } from '../contexts/GradientContext';
 import { Ionicons } from '@expo/vector-icons';
 import { format, differenceInMinutes, addDays, set } from 'date-fns';
 
 export default function HomeScreen() {
   const { alarms, refreshAlarms } = useAlarms();
+  const { text, textFaded, textLight, card } = useThemeColors();
 
   useEffect(() => {
     refreshAlarms();
@@ -60,37 +62,37 @@ export default function HomeScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.logo}>nuveen</Text>
+            <Text style={[styles.logo, { color: text }]}>nuveen</Text>
             <TouchableOpacity
               onPress={() => router.push('/settings')}
-              style={styles.settingsButton}
+              style={[styles.settingsButton, { backgroundColor: card }]}
             >
-              <Ionicons name="settings-outline" size={24} color="#0C0C0C" />
+              <Ionicons name="settings-outline" size={24} color={text} />
             </TouchableOpacity>
           </View>
 
           {/* Main Card */}
           <View style={styles.mainCard}>
             {nextAlarm ? (
-              <View style={styles.alarmCard}>
-                <Text style={styles.cardLabel}>Next Alarm</Text>
-                <Text style={styles.alarmTime}>{nextAlarm.time}</Text>
-                <Text style={styles.alarmName}>{nextAlarm.name || 'Alarm'}</Text>
-                <Text style={styles.countdown}>
+              <View style={[styles.alarmCard, { backgroundColor: card }]}>
+                <Text style={[styles.cardLabel, { color: textFaded }]}>Next Alarm</Text>
+                <Text style={[styles.alarmTime, { color: text }]}>{nextAlarm.time}</Text>
+                <Text style={[styles.alarmName, { color: text }]}>{nextAlarm.name || 'Alarm'}</Text>
+                <Text style={[styles.countdown, { color: textFaded }]}>
                   {formatCountdown(nextAlarm.minutesUntil)}
                 </Text>
                 {nextAlarm.nfcRequired && (
-                  <View style={styles.nfcBadge}>
+                  <View style={[styles.nfcBadge, { backgroundColor: card }]}>
                     <Ionicons name="scan" size={16} color="#F4C07A" />
-                    <Text style={styles.nfcText}>NFC Required</Text>
+                    <Text style={[styles.nfcText, { color: text }]}>NFC Required</Text>
                   </View>
                 )}
               </View>
             ) : (
-              <View style={styles.noAlarmCard}>
-                <Ionicons name="moon-outline" size={64} color="rgba(12, 12, 12, 0.3)" />
-                <Text style={styles.noAlarmText}>No alarms set</Text>
-                <Text style={styles.noAlarmSubtext}>Create your first morning ritual</Text>
+              <View style={[styles.noAlarmCard, { backgroundColor: card }]}>
+                <Ionicons name="moon-outline" size={64} color={textLight} />
+                <Text style={[styles.noAlarmText, { color: textFaded }]}>No alarms set</Text>
+                <Text style={[styles.noAlarmSubtext, { color: textLight }]}>Create your first morning ritual</Text>
               </View>
             )}
           </View>

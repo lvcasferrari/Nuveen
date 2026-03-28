@@ -12,6 +12,8 @@
       "infoPlist": {
         "NFCReaderUsageDescription": "Nuveen needs NFC access to scan your tag and stop alarms.",
         "ITSAppUsesNonExemptEncryption": false,
+        "UIFileSharingEnabled": true,
+        "LSSupportsOpeningDocumentsInPlace": true,
         "UIBackgroundModes": [
           "audio",
           "processing",
@@ -23,7 +25,8 @@
       },
       "bundleIdentifier": "com.nuveen.alarm",
       "entitlements": {
-        "com.apple.developer.nfc.readersession.formats": ["TAG"]
+        "com.apple.developer.nfc.readersession.formats": ["TAG"],
+        "com.apple.developer.usernotifications.time-sensitive": true
       },
       "config": {
         "usesNonExemptEncryption": false
@@ -56,7 +59,8 @@
           "color": "#F4C07A",
           "sounds": ["./assets/sounds/alarm.mp3"]
         }
-      ]
+      ],
+      "expo-document-picker"
     ],
     "experiments": {
       "typedRoutes": true

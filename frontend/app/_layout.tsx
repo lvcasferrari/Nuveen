@@ -11,6 +11,8 @@ import * as Notifications from 'expo-notifications';
 export default function RootLayout() {
   const notificationSubscription = useRef<Notifications.Subscription | null>(null);
 
+  const receivedSubscription = useRef<Notifications.Subscription | null>(null);
+
   useEffect(() => {
     requestNotificationPermissions().catch(console.error);
     setupNotificationChannel().catch(console.error);
@@ -32,26 +34,33 @@ export default function RootLayout() {
     };
     const restoreTimer = setTimeout(() => checkActiveAlarm(), 200);
 
-    // Navigate to alarm-ringing when user taps an alarm notification
-    notificationSubscription.current = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        const data = response.notification.request.content.data;
-        if (data?.alarmId) {
-          router.replace({
-            pathname: '/alarm-ringing',
-            params: {
-              alarmId: data.alarmId as string,
-              alarmName: (data.alarmName as string) ?? 'Alarm',
-              time: (data.alarmTime as string) ?? '',
-              customSoundUri: (data.customSoundUri as string) ?? '',
-            },
-          });
-        }
+    const navigateToAlarm = (data: Record<string, unknown>) => {
+      if (data?.alarmId) {
+        router.replace({
+          pathname: '/alarm-ringing',
+          params: {
+            alarmId: data.alarmId as string,
+            alarmName: (data.alarmName as string) ?? 'Alarm',
+            time: (data.alarmTime as string) ?? '',
+            customSoundUri: (data.customSoundUri as string) ?? '',
+          },
+        });
       }
+    };
+
+    // Navigate immediately when notification arrives (app running in foreground/background)
+    receivedSubscription.current = Notifications.addNotificationReceivedListener(
+      (notification) => navigateToAlarm(notification.request.content.data as Record<string, unknown>)
+    );
+
+    // Navigate to alarm-ringing when user taps an alarm notification (app killed/suspended)
+    notificationSubscription.current = Notifications.addNotificationResponseReceivedListener(
+      (response) => navigateToAlarm(response.notification.request.content.data as Record<string, unknown>)
     );
 
     return () => {
       clearTimeout(restoreTimer);
+      receivedSubscription.current?.remove();
       notificationSubscription.current?.remove();
     };
   }, []);
