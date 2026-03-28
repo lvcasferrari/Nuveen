@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAlarms } from '../contexts/AlarmContext';
 import { useThemeColors } from '../contexts/GradientContext';
+import { Alarm } from '../utils/storage';
 import { Ionicons } from '@expo/vector-icons';
 import { format, differenceInMinutes, addDays, set } from 'date-fns';
 
@@ -23,12 +24,13 @@ export default function HomeScreen() {
     refreshAlarms();
   }, []);
 
-  const nextAlarm = useMemo(() => {
+  type NextAlarm = Alarm & { scheduledTime: Date; minutesUntil: number };
+  const nextAlarm = useMemo((): NextAlarm | null => {
     const enabledAlarms = alarms.filter(a => a.enabled);
     if (enabledAlarms.length === 0) return null;
 
     const now = new Date();
-    let closestAlarm = null;
+    let closestAlarm: NextAlarm | null = null;
     let minDiff = Infinity;
 
     enabledAlarms.forEach(alarm => {

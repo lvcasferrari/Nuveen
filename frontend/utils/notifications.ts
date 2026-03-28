@@ -7,6 +7,8 @@ const ALARM_CHANNEL_ID = 'nuveen_alarms';
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
   }),
@@ -42,7 +44,6 @@ export const requestNotificationPermissions = async (): Promise<boolean> => {
           allowBadge: false,
           allowSound: true,
           allowCriticalAlerts: false,
-          allowsTimeSensitiveNotifications: true,
         },
       });
       finalStatus = status;
