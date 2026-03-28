@@ -111,9 +111,10 @@ export default function AlarmRingingScreen() {
 
       if (tagId) {
         const settings = await getSettings();
-        const validation = validateNFCTag(tagId, settings.nfcTagId, 'strict');
+        const isValid = settings.nfcTags.length === 0 ||
+          settings.nfcTags.some(t => validateNFCTag(tagId, t.tagId, 'strict').valid);
 
-        if (validation.valid) {
+        if (isValid) {
           await handleSuccessfulDismiss();
         } else {
           setNfcStatusMessage('Wrong tag. Please scan your configured Nuveen tag.');

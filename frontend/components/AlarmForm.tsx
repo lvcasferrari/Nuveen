@@ -113,7 +113,7 @@ export default function AlarmForm({
   };
 
   return (
-    <GradientBackground theme="dawn" animated>
+    <GradientBackground animated>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>

@@ -8,6 +8,8 @@ import {
   Switch,
   Alert,
   Platform,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { GradientBackground } from '../components/GradientBackground';
@@ -15,7 +17,7 @@ import { useGradient } from '../contexts/GradientContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getSettings, saveSettings } from '../utils/storage';
+import { getSettings, saveSettings, NfcTag } from '../utils/storage';
 import { readNFCTag, isNFCAvailable } from '../utils/nfc';
 
 const GRADIENT_STYLES = [
@@ -28,12 +30,14 @@ const GRADIENT_STYLES = [
 export default function SettingsScreen() {
   const { setGradientStyle } = useGradient();
   const [settings, setSettings] = useState({
-    nfcTagId: null as string | null,
+    nfcTags: [] as NfcTag[],
     theme: 'auto' as 'light' | 'dark' | 'auto',
     vibrationEnabled: true,
     gradientStyle: 'dawn' as 'dawn' | 'amber' | 'warm' | 'dark',
   });
   const [scanning, setScanning] = useState(false);
+  const [editingTagId, setEditingTagId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
 
   useEffect(() => {
     loadSettings();
@@ -44,52 +48,69 @@ export default function SettingsScreen() {
     setSettings(loaded);
   };
 
-  const handleScanNFC = async () => {
+  const persistSettings = async (updated: typeof settings) => {
+    setSettings(updated);
+    await saveSettings(updated);
+  };
+
+  const handleAddTag = async () => {
     try {
       const available = await isNFCAvailable();
       if (!available) {
-        Alert.alert(
-          'NFC Not Available',
-          'NFC is not available or enabled on this device.'
-        );
+        Alert.alert('NFC Not Available', 'NFC is not available or enabled on this device.');
         return;
       }
-
       setScanning(true);
       const tagId = await readNFCTag();
-
-      if (tagId) {
-        const newSettings = { ...settings, nfcTagId: tagId };
-        await saveSettings(newSettings);
-        setSettings(newSettings);
-        Alert.alert('Success', 'NFC tag registered successfully!');
-      } else {
-        Alert.alert('Failed', 'Could not read NFC tag.');
+      if (!tagId) {
+        Alert.alert('Scan Failed', 'Could not read NFC tag. Please try again.');
+        return;
       }
+      const defaultName = `Tag ${settings.nfcTags.length + 1}`;
+      Alert.prompt(
+        'Name this tag',
+        'Give this NFC tag a name',
+        (name) => {
+          const newTag: NfcTag = {
+            id: Date.now().toString(),
+            name: name?.trim() || defaultName,
+            tagId,
+          };
+          persistSettings({ ...settings, nfcTags: [...settings.nfcTags, newTag] });
+        },
+        'plain-text',
+        defaultName
+      );
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      Alert.alert('Error', error.message || 'Failed to scan NFC tag');
     } finally {
       setScanning(false);
     }
   };
 
-  const handleRemoveNFC = () => {
-    Alert.alert(
-      'Remove NFC Tag',
-      'Are you sure you want to remove your NFC tag?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            const newSettings = { ...settings, nfcTagId: null };
-            await saveSettings(newSettings);
-            setSettings(newSettings);
-          },
-        },
-      ]
-    );
+  const handleDeleteTag = (tagId: string) => {
+    Alert.alert('Remove Tag', 'Remove this NFC tag?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () =>
+          persistSettings({
+            ...settings,
+            nfcTags: settings.nfcTags.filter(t => t.id !== tagId),
+          }),
+      },
+    ]);
+  };
+
+  const handleSaveTagName = (tagId: string) => {
+    const trimmed = editingName.trim();
+    if (!trimmed) return;
+    persistSettings({
+      ...settings,
+      nfcTags: settings.nfcTags.map(t => (t.id === tagId ? { ...t, name: trimmed } : t)),
+    });
+    setEditingTagId(null);
   };
 
   const toggleVibration = async () => {
@@ -106,7 +127,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <GradientBackground theme="dawn" animated>
+    <GradientBackground animated>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         {/* Header */}
         <View style={styles.header}>
@@ -120,60 +141,51 @@ export default function SettingsScreen() {
         <ScrollView contentContainerStyle={styles.content}>
           {/* NFC Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>NFC Tag</Text>
+            <Text style={styles.sectionTitle}>NFC Tags</Text>
             <View style={styles.card}>
-              <View style={styles.cardRow}>
-                <View style={styles.cardInfo}>
-                  <Ionicons name="scan" size={24} color="#F4C07A" />
-                  <View style={styles.cardText}>
-                    <Text style={styles.cardLabel}>Nuveen Tag</Text>
-                    <Text style={styles.cardValue}>
-                      {settings.nfcTagId ? 'Configured' : 'Not Set'}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* NFC Configuration Instructions */}
-              <View style={styles.instructionsBox}>
-                <Text style={styles.instructionsTitle}>📱 Como Configurar sua Tag NFC</Text>
-                <Text style={styles.instructionsText}>
-                  1. Use o app "NFC Tools" para escrever na sua tag{'\n'}
-                  2. Selecione "Write" → "Add a record" → "Text"{'\n'}
-                  3. Digite exatamente:{'\n'}
-                  <Text style={styles.instructionsCode}>NUVEEN:ALARM:2025:SECRET_KEY_12345</Text>{'\n'}
-                  4. Aproxime a tag e clique em "Write"{'\n'}
-                  5. Depois, volte aqui e escaneie sua tag configurada
-                </Text>
-              </View>
-              
-              <View style={styles.cardActions}>
-                {settings.nfcTagId ? (
-                  <TouchableOpacity
-                    onPress={handleRemoveNFC}
-                    style={styles.secondaryButton}
-                  >
-                    <Text style={styles.secondaryButtonText}>Remove Tag</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    onPress={handleScanNFC}
-                    disabled={scanning}
-                    activeOpacity={0.8}
-                  >
-                    <LinearGradient
-                      colors={['#F4C07A', '#EAA85B']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.primaryButton}
+              {settings.nfcTags.length === 0 && (
+                <Text style={styles.emptyTagsText}>No tags configured</Text>
+              )}
+              {settings.nfcTags.map(tag => (
+                <View key={tag.id} style={styles.tagRow}>
+                  <Ionicons name="scan" size={20} color="#F4C07A" />
+                  {editingTagId === tag.id ? (
+                    <TextInput
+                      style={styles.tagNameInput}
+                      value={editingName}
+                      onChangeText={setEditingName}
+                      autoFocus
+                      onSubmitEditing={() => handleSaveTagName(tag.id)}
+                      onBlur={() => handleSaveTagName(tag.id)}
+                      returnKeyType="done"
+                    />
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.tagNameButton}
+                      onPress={() => { setEditingTagId(tag.id); setEditingName(tag.name); }}
                     >
-                      <Text style={styles.primaryButtonText}>
-                        {scanning ? 'Scanning...' : 'Scan NFC Tag'}
-                      </Text>
-                    </LinearGradient>
+                      <Text style={styles.tagName}>{tag.name}</Text>
+                      <Ionicons name="pencil-outline" size={14} color="rgba(12,12,12,0.4)" />
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity onPress={() => handleDeleteTag(tag.id)} style={styles.tagDeleteButton}>
+                    <Ionicons name="trash-outline" size={18} color="#ff4444" />
                   </TouchableOpacity>
-                )}
-              </View>
+                </View>
+              ))}
+              <TouchableOpacity onPress={handleAddTag} disabled={scanning} activeOpacity={0.8} style={styles.cardActions}>
+                <LinearGradient
+                  colors={['#F4C07A', '#EAA85B']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.primaryButton}
+                >
+                  {scanning
+                    ? <ActivityIndicator color="#0C0C0C" size="small" />
+                    : <Text style={styles.primaryButtonText}>+ Add Tag</Text>
+                  }
+                </LinearGradient>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -440,32 +452,43 @@ const styles = StyleSheet.create({
     color: '#0C0C0C',
     fontWeight: '500',
   },
-  instructionsBox: {
-    marginTop: 16,
-    padding: 16,
-    backgroundColor: 'rgba(244, 192, 122, 0.1)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(244, 192, 122, 0.3)',
-  },
-  instructionsTitle: {
+  emptyTagsText: {
     fontSize: 14,
-    fontWeight: '600',
     color: '#0C0C0C',
-    marginBottom: 8,
+    opacity: 0.4,
+    textAlign: 'center',
+    paddingVertical: 8,
+    marginBottom: 12,
   },
-  instructionsText: {
-    fontSize: 13,
+  tagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(12,12,12,0.08)',
+    gap: 12,
+  },
+  tagNameButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  tagName: {
+    fontSize: 16,
+    fontWeight: '500',
     color: '#0C0C0C',
-    lineHeight: 20,
-    opacity: 0.8,
   },
-  instructionsCode: {
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#EAA85B',
-    backgroundColor: 'rgba(12, 12, 12, 0.05)',
-    paddingHorizontal: 4,
+  tagNameInput: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#0C0C0C',
+    borderBottomWidth: 1.5,
+    borderBottomColor: '#F4C07A',
+    paddingVertical: 2,
+  },
+  tagDeleteButton: {
+    padding: 4,
   },
 });

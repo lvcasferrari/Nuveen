@@ -55,7 +55,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <GradientBackground theme="dawn" animated>
+    <GradientBackground animated>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Header */}

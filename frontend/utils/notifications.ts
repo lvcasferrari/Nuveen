@@ -62,6 +62,18 @@ export const scheduleAlarmNotification = async (alarm: Alarm): Promise<string | 
 
     const [hours, minutes] = alarm.time.split(':').map(Number);
 
+    // One-time alarms need a Date trigger; repeating alarms use calendar trigger
+    const now = new Date();
+    const scheduledTime = new Date();
+    scheduledTime.setHours(hours, minutes, 0, 0);
+    if (scheduledTime <= now) {
+      scheduledTime.setDate(scheduledTime.getDate() + 1);
+    }
+
+    const trigger: any = alarm.repeatDays.length > 0
+      ? { hour: hours, minute: minutes, repeats: true }
+      : scheduledTime;
+
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
         title: alarm.name || 'Nuveen Alarm',
@@ -85,11 +97,7 @@ export const scheduleAlarmNotification = async (alarm: Alarm): Promise<string | 
           interruptionLevel: 'timeSensitive',
         }),
       },
-      trigger: {
-        hour: hours,
-        minute: minutes,
-        repeats: alarm.repeatDays.length > 0,
-      } as any,
+      trigger,
     });
 
     console.log(`Alarm scheduled: ${alarm.name} at ${alarm.time} (ID: ${notificationId})`);

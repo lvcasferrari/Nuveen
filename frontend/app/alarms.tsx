@@ -78,7 +78,7 @@ export default function AlarmsScreen() {
   );
 
   return (
-    <GradientBackground theme="dawn" animated>
+    <GradientBackground animated>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         {/* Header */}
         <View style={styles.header}>
