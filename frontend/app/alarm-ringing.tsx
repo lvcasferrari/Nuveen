@@ -120,7 +120,7 @@ export default function AlarmRingingScreen() {
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setScreenState('success');
-    setTimeout(() => router.replace('/home'), 2000);
+    setTimeout(() => router.replace('/home'), 5000);
   };
 
   return (

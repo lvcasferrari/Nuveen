@@ -59,7 +59,7 @@ export default function AlarmForm({
   initialSoundName,
   onSubmit,
 }: Props) {
-  const { text, textFaded, card } = useThemeColors();
+  const { text, textFaded, card, isDark } = useThemeColors();
   const [time, setTime] = useState(initialTime ?? new Date());
   const [name, setName] = useState(initialName);
   const [repeatDays, setRepeatDays] = useState<number[]>(initialRepeatDays);
@@ -135,7 +135,7 @@ export default function AlarmForm({
                 mode="time"
                 display="spinner"
                 onChange={(_, d) => d && setTime(d)}
-                textColor="#0C0C0C"
+                textColor={isDark ? '#F4C07A' : '#0C0C0C'}
                 style={styles.timePicker}
               />
             ) : (

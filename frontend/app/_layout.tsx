@@ -4,6 +4,7 @@ import { AlarmProvider } from '../contexts/AlarmContext';
 import { GradientProvider } from '../contexts/GradientContext';
 import { requestNotificationPermissions, setupNotificationChannel } from '../utils/notifications';
 import { getActiveAlarm } from '../utils/storage';
+import { startAlarmSound, configureAudioSession } from '../utils/alarmAudio';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
@@ -19,6 +20,12 @@ export default function RootLayout() {
 
     const navigateToAlarm = (data: Record<string, unknown>) => {
       if (data?.alarmId) {
+        // Fire alarm sound immediately — don't wait for UI navigation
+        const uri = (data.customSoundUri as string) || undefined;
+        configureAudioSession()
+          .then(() => startAlarmSound(uri))
+          .catch(() => {});
+
         router.replace({
           pathname: '/alarm-ringing',
           params: {

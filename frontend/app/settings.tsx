@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getSettings, saveSettings, NfcTag } from '../utils/storage';
 import { readNFCTag, isNFCAvailable } from '../utils/nfc';
+import Constants from 'expo-constants';
 
 const GRADIENT_STYLES = [
   { id: 'dawn', label: 'Dawn', colors: ['#F4C07A', '#EAA85B', '#F4C07A'] },
@@ -254,11 +255,11 @@ export default function SettingsScreen() {
             <View style={styles.card}>
               <View style={styles.aboutRow}>
                 <Text style={[styles.aboutLabel, { color: textFaded }]}>Version</Text>
-                <Text style={[styles.aboutValue, { color: text }]}>1.0.0</Text>
+                <Text style={[styles.aboutValue, { color: text }]}>{Constants.expoConfig?.version ?? '1.1.0'}</Text>
               </View>
               <View style={styles.aboutRow}>
                 <Text style={[styles.aboutLabel, { color: textFaded }]}>Build</Text>
-                <Text style={[styles.aboutValue, { color: text }]}>2025.01</Text>
+                <Text style={[styles.aboutValue, { color: text }]}>{Constants.nativeBuildVersion ?? Constants.expoConfig?.ios?.buildNumber ?? '—'}</Text>
               </View>
             </View>
           </View>

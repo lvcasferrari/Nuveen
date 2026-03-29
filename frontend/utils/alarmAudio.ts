@@ -23,7 +23,7 @@ export const startSilentKeepAlive = async (): Promise<void> => {
     await configureAudioSession();
     const { sound } = await Audio.Sound.createAsync(
       require('../assets/sounds/alarm.mp3'),
-      { shouldPlay: true, isLooping: true, volume: 0 }
+      { shouldPlay: true, isLooping: true, volume: 0.001 } // non-zero keeps iOS audio session alive
     );
     _silentSound = sound;
   } catch (err) {
@@ -75,10 +75,9 @@ const _startVolumeGuard = async (): Promise<void> => {
 
     _volumeSubscription = VolumeManager.addVolumeListener(async ({ volume }) => {
       if (!_isRinging) return;
-      if (volume < 0.95) {
-        // Override: snap back to max
+      // Intercept ANY volume decrease and immediately restore + restart
+      if (volume < 1.0) {
         await VolumeManager.setVolume(1.0, { showUI: false });
-        // Restart sound to reinitialise audio session at full volume
         await _loadAndPlayAlarm(_currentCustomSoundUri);
       }
     });
