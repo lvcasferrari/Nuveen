@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,16 +12,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAlarms } from '../contexts/AlarmContext';
 import { useThemeColors } from '../contexts/GradientContext';
-import { Alarm } from '../utils/storage';
+import { Alarm, getActiveAlarm, ActiveAlarm } from '../utils/storage';
 import { Ionicons } from '@expo/vector-icons';
 import { format, differenceInMinutes, addDays, set } from 'date-fns';
 
 export default function HomeScreen() {
   const { alarms, refreshAlarms } = useAlarms();
   const { text, textFaded, textLight, card } = useThemeColors();
+  const [activeAlarm, setActiveAlarm] = useState<ActiveAlarm | null>(null);
 
   useEffect(() => {
     refreshAlarms();
+    getActiveAlarm().then(setActiveAlarm).catch(() => {});
   }, []);
 
   type NextAlarm = Alarm & { scheduledTime: Date; minutesUntil: number };
@@ -98,6 +100,37 @@ export default function HomeScreen() {
               </View>
             )}
           </View>
+
+          {/* SOS: Stop Ringing Alarm */}
+          {activeAlarm && (
+            <TouchableOpacity
+              onPress={() => router.push({
+                pathname: '/alarm-ringing',
+                params: {
+                  alarmId: activeAlarm.alarmId,
+                  alarmName: activeAlarm.alarmName,
+                  time: activeAlarm.alarmTime,
+                  customSoundUri: activeAlarm.customSoundUri ?? '',
+                },
+              })}
+              activeOpacity={0.8}
+              style={styles.sosCard}
+            >
+              <LinearGradient
+                colors={['#FF4444', '#CC0000']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.sosCardInner}
+              >
+                <Ionicons name="scan" size={28} color="#fff" />
+                <View style={{ flex: 1, marginLeft: 16 }}>
+                  <Text style={styles.sosTitle}>Alarm is Ringing!</Text>
+                  <Text style={styles.sosSubtitle}>Tap to scan NFC and stop</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color="#fff" />
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
 
           {/* Action Buttons */}
           <View style={styles.actions}>
@@ -240,6 +273,25 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: 16,
+  },
+  sosCard: {
+    marginBottom: 16,
+  },
+  sosCardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    borderRadius: 24,
+  },
+  sosTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  sosSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 2,
   },
   actionButton: {
     flexDirection: 'row',

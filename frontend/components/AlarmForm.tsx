@@ -169,7 +169,7 @@ export default function AlarmForm({
 
           {/* Repeat */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Repeat</Text>
+            <Text style={[styles.sectionLabel, { color: text }]}>Repeat</Text>
             <View style={styles.daysContainer}>
               {WEEKDAYS.map(day => (
                 <TouchableOpacity key={day.id} onPress={() => toggleDay(day.id)} activeOpacity={0.7}>
@@ -177,11 +177,11 @@ export default function AlarmForm({
                     colors={
                       repeatDays.includes(day.id)
                         ? ['#F4C07A', '#EAA85B']
-                        : ['rgba(12, 12, 12, 0.1)', 'rgba(12, 12, 12, 0.05)']
+                        : [card, card]
                     }
                     style={styles.dayButton}
                   >
-                    <Text style={[styles.dayText, repeatDays.includes(day.id) && styles.dayTextActive]}>
+                    <Text style={[styles.dayText, { color: text }, repeatDays.includes(day.id) && styles.dayTextActive]}>
                       {day.label}
                     </Text>
                   </LinearGradient>
@@ -192,7 +192,7 @@ export default function AlarmForm({
 
           {/* Sound */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Alarm Sound</Text>
+            <Text style={[styles.sectionLabel, { color: text }]}>Alarm Sound</Text>
             <View style={styles.audioSection}>
               <View style={styles.audioInfo}>
                 <Ionicons name={customSoundUri ? 'musical-notes' : 'volume-high'} size={24} color="#F4C07A" />

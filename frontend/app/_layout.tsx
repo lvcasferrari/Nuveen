@@ -17,23 +17,6 @@ export default function RootLayout() {
     requestNotificationPermissions().catch(console.error);
     setupNotificationChannel().catch(console.error);
 
-    // Restore active alarm session if one was interrupted (e.g. app killed while alarm was ringing)
-    const checkActiveAlarm = async () => {
-      const active = await getActiveAlarm();
-      if (active) {
-        router.replace({
-          pathname: '/alarm-ringing',
-          params: {
-            alarmId: active.alarmId,
-            alarmName: active.alarmName,
-            time: active.alarmTime,
-            customSoundUri: active.customSoundUri ?? '',
-          },
-        });
-      }
-    };
-    const restoreTimer = setTimeout(() => checkActiveAlarm(), 200);
-
     const navigateToAlarm = (data: Record<string, unknown>) => {
       if (data?.alarmId) {
         router.replace({
@@ -47,6 +30,36 @@ export default function RootLayout() {
         });
       }
     };
+
+    // Restore active alarm session if one was interrupted (e.g. app killed while alarm was ringing)
+    const checkActiveAlarm = async () => {
+      // First try stored active alarm
+      const active = await getActiveAlarm();
+      if (active) {
+        router.replace({
+          pathname: '/alarm-ringing',
+          params: {
+            alarmId: active.alarmId,
+            alarmName: active.alarmName,
+            time: active.alarmTime,
+            customSoundUri: active.customSoundUri ?? '',
+          },
+        });
+        return;
+      }
+      // Fallback: check if there's a delivered alarm notification (app killed while alarm fired)
+      try {
+        const presented = await Notifications.getPresentedNotificationsAsync();
+        const alarmNotif = presented.find(n => n.request.content.data?.alarmId);
+        if (alarmNotif) {
+          const data = alarmNotif.request.content.data as Record<string, unknown>;
+          navigateToAlarm(data);
+        }
+      } catch {
+        // getPresentedNotificationsAsync may not be available on all platforms
+      }
+    };
+    const restoreTimer = setTimeout(() => checkActiveAlarm(), 200);
 
     // Navigate immediately when notification arrives (app running in foreground/background)
     receivedSubscription.current = Notifications.addNotificationReceivedListener(

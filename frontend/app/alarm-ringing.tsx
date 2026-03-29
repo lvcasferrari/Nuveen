@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,8 +20,8 @@ import {
   clearActiveAlarm,
   incrementNfcFailedAttempts,
 } from '../utils/storage';
-import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
+import { startAlarmSound, stopAlarmSound, isAlarmRinging, configureAudioSession } from '../utils/alarmAudio';
 
 type ScreenState = 'ringing' | 'scanning' | 'success';
 
@@ -34,7 +34,6 @@ export default function AlarmRingingScreen() {
 
   const [screenState, setScreenState] = useState<ScreenState>('ringing');
   const [nfcStatusMessage, setNfcStatusMessage] = useState<string | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
 
   useEffect(() => {
     setActiveAlarm({
@@ -55,41 +54,16 @@ export default function AlarmRingingScreen() {
     return () => {
       Vibration.cancel();
       backHandler.remove();
-      soundRef.current?.stopAsync().catch(() => {});
-      soundRef.current?.unloadAsync().catch(() => {});
+      stopAlarmSound().catch(() => {});
     };
   }, []);
 
   const playAlarmSound = async () => {
     try {
-      await Audio.setAudioModeAsync({
-        staysActiveInBackground: true,
-        playsInSilentModeIOS: true,   // plays even with mute switch on
-        interruptionModeIOS: 1,        // DO_NOT_MIX — takes over audio completely
-        allowsRecordingIOS: false,
-        shouldDuckAndroid: false,      // do not lower volume for other apps
-        playThroughEarpieceAndroid: false,
-      });
-
-      // Priority: custom sound → bundled default
-      const sources = [
-        ...(customSoundUri ? [{ uri: customSoundUri }] : []),
-        require('../assets/sounds/alarm.mp3'),
-      ];
-
-      for (const source of sources) {
-        try {
-          const { sound: newSound } = await Audio.Sound.createAsync(source, {
-            shouldPlay: true,
-            isLooping: true,
-            volume: 1.0,
-          });
-          soundRef.current = newSound;
-          return;
-        } catch {
-          continue;
-        }
-      }
+      await configureAudioSession();
+      // If background monitor already started the sound, don't restart it
+      if (isAlarmRinging()) return;
+      await startAlarmSound(customSoundUri || undefined);
     } catch (error) {
       console.error('Error setting up alarm sound:', error);
     }
@@ -136,19 +110,14 @@ export default function AlarmRingingScreen() {
 
   const handleSuccessfulDismiss = async () => {
     Vibration.cancel();
-    await soundRef.current?.stopAsync().catch(() => {});
-    await soundRef.current?.unloadAsync().catch(() => {});
-    soundRef.current = null;
-
+    await stopAlarmSound();
     await clearActiveAlarm();
-
     await addWakeLog({
       id: Date.now().toString(),
       date: new Date().toISOString(),
       alarmId,
       wakeTime: new Date().toTimeString().split(' ')[0],
     });
-
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setScreenState('success');
     setTimeout(() => router.replace('/home'), 2000);

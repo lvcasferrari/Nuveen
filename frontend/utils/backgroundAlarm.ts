@@ -1,30 +1,19 @@
-import { Audio } from 'expo-av';
 import { router } from 'expo-router';
-import { getAlarms } from './storage';
+import { getAlarms, setActiveAlarm } from './storage';
+import {
+  startSilentKeepAlive,
+  stopSilentKeepAlive,
+  startAlarmSound,
+} from './alarmAudio';
 
-let silentSound: Audio.Sound | null = null;
 let checker: ReturnType<typeof setInterval> | null = null;
-let triggeredMinute = -1; // prevent double-firing in same minute
+let triggeredMinute = -1;
 
 export const startBackgroundAlarmMonitor = async (): Promise<void> => {
-  if (silentSound) return; // already running
+  if (checker) return; // already running
 
   try {
-    await Audio.setAudioModeAsync({
-      staysActiveInBackground: true,
-      playsInSilentModeIOS: true,
-      interruptionModeIOS: 1,
-      shouldDuckAndroid: false,
-      playThroughEarpieceAndroid: false,
-    });
-
-    // Play alarm.mp3 at volume 0 — keeps the iOS audio session alive
-    // so the app stays running in background and can fire the alarm
-    const { sound } = await Audio.Sound.createAsync(
-      require('../assets/sounds/alarm.mp3'),
-      { shouldPlay: true, isLooping: true, volume: 0 }
-    );
-    silentSound = sound;
+    await startSilentKeepAlive();
 
     checker = setInterval(async () => {
       const now = new Date();
@@ -40,6 +29,20 @@ export const startBackgroundAlarmMonitor = async (): Promise<void> => {
 
       if (due) {
         triggeredMinute = currentMinute;
+
+        // Store active alarm BEFORE navigating so cold-start restore works
+        await setActiveAlarm({
+          alarmId: due.id,
+          alarmName: due.name,
+          alarmTime: due.time,
+          customSoundUri: due.customSoundUri,
+          nfcFailedAttempts: 0,
+          startedAt: new Date().toISOString(),
+        });
+
+        // Start alarm sound from background so it plays even on lock screen
+        await startAlarmSound(due.customSoundUri);
+
         router.push({
           pathname: '/alarm-ringing',
           params: {
@@ -50,7 +53,7 @@ export const startBackgroundAlarmMonitor = async (): Promise<void> => {
           },
         });
       }
-    }, 5000); // check every 5 seconds
+    }, 5000);
   } catch (err) {
     console.error('Background alarm monitor failed to start:', err);
   }
@@ -58,9 +61,6 @@ export const startBackgroundAlarmMonitor = async (): Promise<void> => {
 
 export const stopBackgroundAlarmMonitor = async (): Promise<void> => {
   if (checker) { clearInterval(checker); checker = null; }
-  if (silentSound) {
-    await silentSound.unloadAsync().catch(() => {});
-    silentSound = null;
-  }
+  await stopSilentKeepAlive();
   triggeredMinute = -1;
 };
