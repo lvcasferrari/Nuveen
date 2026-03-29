@@ -4,6 +4,14 @@ import { Alarm } from './storage';
 
 const ALARM_CHANNEL_ID = 'nuveen_alarms';
 
+// Number of follow-up notifications to schedule after the main alarm.
+// Each fires 1 minute apart, so 5 follow-ups = 5 minutes of repeated ringing.
+// This is critical on iOS: when the app is closed, the ONLY way to make sound
+// is through notification sounds. Each notification plays the sound once (~4-30s),
+// then goes silent. Burst notifications keep "ringing" until the user opens the app.
+const BURST_COUNT = 5;
+const BURST_INTERVAL_SECONDS = 60;
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -32,6 +40,20 @@ export const setupNotificationChannel = async (): Promise<void> => {
   }
 };
 
+export const setupNotificationCategories = async (): Promise<void> => {
+  try {
+    await Notifications.setNotificationCategoryAsync('ALARM', [
+      {
+        identifier: 'SCAN_NFC',
+        buttonTitle: 'Open & Scan NFC',
+        options: { opensAppToForeground: true },
+      },
+    ]);
+  } catch (error) {
+    console.error('Error setting up notification categories:', error);
+  }
+};
+
 export const requestNotificationPermissions = async (): Promise<boolean> => {
   try {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -56,20 +78,24 @@ export const requestNotificationPermissions = async (): Promise<boolean> => {
   }
 };
 
-const buildAlarmContent = (alarm: Alarm): Notifications.NotificationContentInput => ({
+const buildAlarmContent = (alarm: Alarm, burstIndex: number): Notifications.NotificationContentInput => ({
   title: alarm.name || 'Nuveen Alarm',
-  body: 'Scan your NFC tag to stop the alarm',
+  body: burstIndex === 0
+    ? 'Scan your NFC tag to stop the alarm'
+    : 'Alarm is still ringing! Open to scan NFC.',
   sound: 'alarm.mp3',
   priority: Notifications.AndroidNotificationPriority.MAX,
   vibrate: [0, 500, 500, 500],
   sticky: true,
   autoDismiss: false,
+  categoryIdentifier: 'ALARM',
   data: {
     alarmId: alarm.id,
     requiresNFC: alarm.nfcRequired,
     alarmName: alarm.name,
     alarmTime: alarm.time,
     customSoundUri: alarm.customSoundUri ?? null,
+    burstIndex,
   },
   ...(Platform.OS === 'android' && {
     channelId: ALARM_CHANNEL_ID,
@@ -86,32 +112,35 @@ export const scheduleAlarmNotification = async (alarm: Alarm): Promise<string | 
     if (!alarm.enabled) return null;
 
     const [hours, minutes] = alarm.time.split(':').map(Number);
-    const content = buildAlarmContent(alarm);
+    let firstId: string | null = null;
 
-    // Weekly repeating: schedule one notification per selected day
     if (alarm.repeatDays.length > 0) {
-      const ids: string[] = [];
+      // Weekly repeating: schedule one set of burst notifications per selected day
       for (const weekday of alarm.repeatDays) {
         // expo-notifications weekday: 1=Sunday...7=Saturday
         // our repeatDays: 0=Sunday...6=Saturday
-        const notificationId = await Notifications.scheduleNotificationAsync({
-          content,
-          trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-            weekday: weekday + 1,
-            hour: hours,
-            minute: minutes,
-            channelId: Platform.OS === 'android' ? ALARM_CHANNEL_ID : undefined,
-          },
-        });
-        ids.push(notificationId);
-      }
-      console.log(`Alarm scheduled: ${alarm.name} at ${alarm.time} on days [${alarm.repeatDays}] (IDs: ${ids.join(',')})`);
-      return ids[0];
-    }
+        for (let burst = 0; burst <= BURST_COUNT; burst++) {
+          const burstMinute = minutes + burst;
+          const triggerHour = hours + Math.floor(burstMinute / 60);
+          const triggerMinute = burstMinute % 60;
 
-    // Daily repeating (no specific days = every day)
-    if (alarm.repeatDays.length === 0) {
+          const notificationId = await Notifications.scheduleNotificationAsync({
+            content: buildAlarmContent(alarm, burst),
+            trigger: {
+              type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+              weekday: weekday + 1,
+              hour: triggerHour % 24,
+              minute: triggerMinute,
+              channelId: Platform.OS === 'android' ? ALARM_CHANNEL_ID : undefined,
+            },
+          });
+
+          if (burst === 0 && !firstId) firstId = notificationId;
+        }
+      }
+      console.log(`Alarm scheduled: ${alarm.name} at ${alarm.time} on days [${alarm.repeatDays}] with ${BURST_COUNT} follow-ups`);
+    } else {
+      // One-time alarm: schedule DATE triggers for burst
       const now = new Date();
       const scheduledTime = new Date();
       scheduledTime.setHours(hours, minutes, 0, 0);
@@ -119,19 +148,24 @@ export const scheduleAlarmNotification = async (alarm: Alarm): Promise<string | 
         scheduledTime.setDate(scheduledTime.getDate() + 1);
       }
 
-      const notificationId = await Notifications.scheduleNotificationAsync({
-        content,
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.DATE,
-          date: scheduledTime,
-          channelId: Platform.OS === 'android' ? ALARM_CHANNEL_ID : undefined,
-        },
-      });
-      console.log(`Alarm scheduled: ${alarm.name} at ${alarm.time} one-time (ID: ${notificationId})`);
-      return notificationId;
+      for (let burst = 0; burst <= BURST_COUNT; burst++) {
+        const burstTime = new Date(scheduledTime.getTime() + burst * BURST_INTERVAL_SECONDS * 1000);
+
+        const notificationId = await Notifications.scheduleNotificationAsync({
+          content: buildAlarmContent(alarm, burst),
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: burstTime,
+            channelId: Platform.OS === 'android' ? ALARM_CHANNEL_ID : undefined,
+          },
+        });
+
+        if (burst === 0) firstId = notificationId;
+      }
+      console.log(`Alarm scheduled: ${alarm.name} at ${alarm.time} one-time with ${BURST_COUNT} follow-ups`);
     }
 
-    return null;
+    return firstId;
   } catch (error) {
     console.error('Error scheduling alarm notification:', error);
     return null;
@@ -148,6 +182,19 @@ export const cancelAlarmNotification = async (alarmId: string): Promise<void> =>
     }
   } catch (error) {
     console.error('Error canceling alarm notification:', error);
+  }
+};
+
+// Cancel all pending notifications for a specific alarm AND dismiss delivered ones.
+// Called when an alarm is dismissed via NFC to stop burst follow-ups from firing.
+export const cancelAndDismissAlarmNotifications = async (alarmId: string): Promise<void> => {
+  try {
+    // Cancel all pending scheduled notifications for this alarm (burst follow-ups)
+    await cancelAlarmNotification(alarmId);
+    // Dismiss any already-delivered notifications from the notification tray
+    await Notifications.dismissAllNotificationsAsync();
+  } catch (error) {
+    console.error('Error canceling/dismissing alarm notifications:', error);
   }
 };
 

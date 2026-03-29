@@ -1,10 +1,16 @@
 import React, { useEffect, useRef } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { AlarmProvider } from '../contexts/AlarmContext';
 import { GradientProvider } from '../contexts/GradientContext';
-import { requestNotificationPermissions, setupNotificationChannel } from '../utils/notifications';
+import {
+  requestNotificationPermissions,
+  setupNotificationChannel,
+  setupNotificationCategories,
+  cancelAndDismissAlarmNotifications,
+} from '../utils/notifications';
 import { getActiveAlarm, setActiveAlarm, getAlarms, updateAlarm } from '../utils/storage';
-import { startAlarmSound, configureAudioSession } from '../utils/alarmAudio';
+import { startAlarmSound, configureAudioSession, isAlarmRinging } from '../utils/alarmAudio';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
@@ -12,10 +18,12 @@ import * as Notifications from 'expo-notifications';
 export default function RootLayout() {
   const notificationSubscription = useRef<Notifications.Subscription | null>(null);
   const receivedSubscription = useRef<Notifications.Subscription | null>(null);
+  const appState = useRef(AppState.currentState);
 
   useEffect(() => {
     requestNotificationPermissions().catch(console.error);
     setupNotificationChannel().catch(console.error);
+    setupNotificationCategories().catch(console.error);
 
     const navigateToAlarm = async (data: Record<string, unknown>) => {
       if (!data?.alarmId) return;
@@ -42,6 +50,9 @@ export default function RootLayout() {
         }
       } catch {}
 
+      // Cancel remaining burst follow-up notifications — we're handling it now
+      await cancelAndDismissAlarmNotifications(alarmId).catch(() => {});
+
       // Fire alarm sound immediately — don't wait for UI navigation
       configureAudioSession()
         .then(() => startAlarmSound(uri))
@@ -60,7 +71,6 @@ export default function RootLayout() {
 
     // Restore active alarm session if one was interrupted (e.g. app killed while alarm was ringing)
     const checkActiveAlarm = async () => {
-      // First try stored active alarm
       const active = await getActiveAlarm();
       if (active) {
         // Restart sound on cold-start restore — the original sound died with the process
@@ -93,6 +103,34 @@ export default function RootLayout() {
     };
     const restoreTimer = setTimeout(() => checkActiveAlarm(), 200);
 
+    // AppState listener: when user brings app to foreground, check if there's an
+    // active alarm that needs the sound restarted (e.g., user tapped notification
+    // or swiped up from lock screen while alarm was ringing via notifications only)
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        // App just came to foreground
+        const active = await getActiveAlarm();
+        if (active && !isAlarmRinging()) {
+          // There's an active alarm but sound isn't playing — restart it
+          configureAudioSession()
+            .then(() => startAlarmSound(active.customSoundUri))
+            .catch(() => {});
+
+          router.replace({
+            pathname: '/alarm-ringing',
+            params: {
+              alarmId: active.alarmId,
+              alarmName: active.alarmName,
+              time: active.alarmTime,
+              customSoundUri: active.customSoundUri ?? '',
+            },
+          });
+        }
+      }
+      appState.current = nextAppState;
+    };
+    const appStateSub = AppState.addEventListener('change', handleAppStateChange);
+
     // Navigate immediately when notification arrives (app running in foreground/background)
     receivedSubscription.current = Notifications.addNotificationReceivedListener(
       (notification) => {
@@ -109,6 +147,7 @@ export default function RootLayout() {
 
     return () => {
       clearTimeout(restoreTimer);
+      appStateSub.remove();
       receivedSubscription.current?.remove();
       notificationSubscription.current?.remove();
     };

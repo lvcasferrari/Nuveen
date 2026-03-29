@@ -21,7 +21,7 @@ import {
   incrementNfcFailedAttempts,
 } from '../utils/storage';
 import * as Haptics from 'expo-haptics';
-import * as Notifications from 'expo-notifications';
+import { cancelAndDismissAlarmNotifications } from '../utils/notifications';
 import { startAlarmSound, stopAlarmSound, isAlarmRinging, configureAudioSession } from '../utils/alarmAudio';
 
 type ScreenState = 'ringing' | 'scanning' | 'success';
@@ -58,8 +58,8 @@ export default function AlarmRingingScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     playAlarmSound();
 
-    // Dismiss any alarm notifications from the tray (user is now on the ringing screen)
-    Notifications.dismissAllNotificationsAsync().catch(() => {});
+    // Cancel remaining burst follow-up notifications and dismiss from tray
+    cancelAndDismissAlarmNotifications(alarmId).catch(() => {});
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => true);
 
@@ -129,8 +129,8 @@ export default function AlarmRingingScreen() {
     }
     await stopAlarmSound();
     await clearActiveAlarm();
-    // Dismiss any remaining alarm notifications
-    await Notifications.dismissAllNotificationsAsync().catch(() => {});
+    // Cancel all burst follow-ups and dismiss from notification tray
+    await cancelAndDismissAlarmNotifications(alarmId).catch(() => {});
     await addWakeLog({
       id: Date.now().toString(),
       date: new Date().toISOString(),
