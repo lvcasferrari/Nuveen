@@ -1,8 +1,11 @@
 import { Audio } from 'expo-av';
+import VolumeManager from 'react-native-volume-manager';
 
 let _alarmSound: Audio.Sound | null = null;
 let _silentSound: Audio.Sound | null = null;
 let _isRinging = false;
+let _currentCustomSoundUri: string | undefined;
+let _volumeSubscription: ReturnType<typeof VolumeManager.addVolumeListener> | null = null;
 
 export const configureAudioSession = async (): Promise<void> => {
   await Audio.setAudioModeAsync({
@@ -36,12 +39,13 @@ export const stopSilentKeepAlive = async (): Promise<void> => {
   }
 };
 
-export const startAlarmSound = async (customSoundUri?: string): Promise<void> => {
-  if (_isRinging) return;
-  _isRinging = true;
-
-  // Stop silent keep-alive so we don't have two sounds
-  await stopSilentKeepAlive();
+// Internal: (re)create the alarm sound at full volume
+const _loadAndPlayAlarm = async (customSoundUri?: string): Promise<void> => {
+  if (_alarmSound) {
+    await _alarmSound.stopAsync().catch(() => {});
+    await _alarmSound.unloadAsync().catch(() => {});
+    _alarmSound = null;
+  }
 
   const sources: (object | number)[] = [
     ...(customSoundUri ? [{ uri: customSoundUri }] : []),
@@ -61,11 +65,50 @@ export const startAlarmSound = async (customSoundUri?: string): Promise<void> =>
       continue;
     }
   }
-  _isRinging = false;
+};
+
+// Volume guard: when user presses volume down, immediately reset to max and restart sound
+const _startVolumeGuard = async (): Promise<void> => {
+  try {
+    // Crank volume to max immediately
+    await VolumeManager.setVolume(1.0, { showUI: false });
+
+    _volumeSubscription = VolumeManager.addVolumeListener(async ({ volume }) => {
+      if (!_isRinging) return;
+      if (volume < 0.95) {
+        // Override: snap back to max
+        await VolumeManager.setVolume(1.0, { showUI: false });
+        // Restart sound to reinitialise audio session at full volume
+        await _loadAndPlayAlarm(_currentCustomSoundUri);
+      }
+    });
+  } catch (err) {
+    console.error('Volume guard failed:', err);
+  }
+};
+
+const _stopVolumeGuard = (): void => {
+  if (_volumeSubscription) {
+    _volumeSubscription.remove();
+    _volumeSubscription = null;
+  }
+};
+
+export const startAlarmSound = async (customSoundUri?: string): Promise<void> => {
+  if (_isRinging) return;
+  _isRinging = true;
+  _currentCustomSoundUri = customSoundUri;
+
+  // Stop silent keep-alive — alarm sound keeps the session alive
+  await stopSilentKeepAlive();
+
+  await _loadAndPlayAlarm(customSoundUri);
+  await _startVolumeGuard();
 };
 
 export const stopAlarmSound = async (): Promise<void> => {
   _isRinging = false;
+  _stopVolumeGuard();
   if (_alarmSound) {
     await _alarmSound.stopAsync().catch(() => {});
     await _alarmSound.unloadAsync().catch(() => {});
