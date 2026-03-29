@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Vibration,
   BackHandler,
-  Platform,
 } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { GradientBackground } from '../components/GradientBackground';
@@ -21,24 +20,22 @@ import {
   clearActiveAlarm,
   incrementNfcFailedAttempts,
 } from '../utils/storage';
-import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
+import { startAlarmSound, stopAlarmSound, isAlarmRinging, configureAudioSession } from '../utils/alarmAudio';
 
 type ScreenState = 'ringing' | 'scanning' | 'success';
 
 export default function AlarmRingingScreen() {
   const params = useLocalSearchParams();
   const alarmId = params.alarmId as string;
-  const alarmName = params.alarmName as string || 'Alarm';
+  const alarmName = (params.alarmName as string) || 'Alarm';
   const time = params.time as string;
   const customSoundUri = params.customSoundUri as string | undefined;
 
   const [screenState, setScreenState] = useState<ScreenState>('ringing');
   const [nfcStatusMessage, setNfcStatusMessage] = useState<string | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
 
   useEffect(() => {
-    // Write active alarm to persistent storage so it can be restored after app restart
     setActiveAlarm({
       alarmId,
       alarmName,
@@ -48,77 +45,37 @@ export default function AlarmRingingScreen() {
       startedAt: new Date().toISOString(),
     }).catch(console.error);
 
-    // Start vibration and haptic
     Vibration.vibrate([0, 1000, 500, 1000], true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    playAlarmSound();
 
-    // Play alarm sound
-    playAlarmSound(customSoundUri || undefined);
-
-    // Block Android hardware back button — returning true suppresses default back behavior
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => true);
 
     return () => {
       Vibration.cancel();
       backHandler.remove();
-      soundRef.current?.stopAsync().catch(() => {});
-      soundRef.current?.unloadAsync().catch(() => {});
+      stopAlarmSound().catch(() => {});
     };
   }, []);
 
-  const playAlarmSound = async (uri?: string) => {
+  const playAlarmSound = async () => {
     try {
-      await Audio.setAudioModeAsync({
-        staysActiveInBackground: true,
-        playsInSilentModeIOS: true,
-        interruptionModeIOS: 1,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
-      });
-
-      // Try custom sound first, then online fallbacks
-      const sources = uri
-        ? [
-            { uri },
-            { uri: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3' },
-          ]
-        : [
-            { uri: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3' },
-            { uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3' },
-          ];
-
-      for (const source of sources) {
-        try {
-          const { sound: newSound } = await Audio.Sound.createAsync(source, {
-            shouldPlay: true,
-            isLooping: true,
-            volume: 1.0,
-            rate: 1.0,
-            shouldCorrectPitch: true,
-          });
-          soundRef.current = newSound;
-          console.log('✅ Alarm sound started');
-          return;
-        } catch {
-          continue;
-        }
-      }
-
-      console.warn('⚠️ Could not play alarm sound from any source');
+      await configureAudioSession();
+      // If background monitor already started the sound, don't restart it
+      if (isAlarmRinging()) return;
+      await startAlarmSound(customSoundUri || undefined);
     } catch (error) {
-      console.error('❌ Error setting up alarm sound:', error);
+      console.error('Error setting up alarm sound:', error);
     }
   };
 
   const handleScanNFC = async () => {
-    // Clear previous status message when a new scan starts
     setNfcStatusMessage(null);
     setScreenState('scanning');
 
     try {
       const available = await isNFCAvailable();
       if (!available) {
-        // No bypass — inform user but keep alarm active
         setNfcStatusMessage('NFC is not available on this device. The alarm cannot be dismissed without NFC.');
         setScreenState('ringing');
         return;
@@ -128,13 +85,12 @@ export default function AlarmRingingScreen() {
 
       if (tagId) {
         const settings = await getSettings();
-        const validation = validateNFCTag(tagId, settings.nfcTagId, 'strict');
+        const isValid = settings.nfcTags.length === 0 ||
+          settings.nfcTags.some(t => validateNFCTag(tagId, t.tagId, 'strict').valid);
 
-        if (validation.valid) {
-          console.log('NFC validation successful:', validation.reason);
+        if (isValid) {
           await handleSuccessfulDismiss();
         } else {
-          console.warn('NFC validation failed:', validation.reason);
           setNfcStatusMessage('Wrong tag. Please scan your configured Nuveen tag.');
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           await incrementNfcFailedAttempts();
@@ -153,36 +109,22 @@ export default function AlarmRingingScreen() {
   };
 
   const handleSuccessfulDismiss = async () => {
-    // Stop audio and vibration
     Vibration.cancel();
-    await soundRef.current?.stopAsync().catch(() => {});
-    await soundRef.current?.unloadAsync().catch(() => {});
-    soundRef.current = null;
-
-    // Clear persistent alarm state
+    await stopAlarmSound();
     await clearActiveAlarm();
-
-    // Log wake event
     await addWakeLog({
       id: Date.now().toString(),
       date: new Date().toISOString(),
       alarmId,
       wakeTime: new Date().toTimeString().split(' ')[0],
     });
-
-    // Success haptic feedback
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-    // Show inline success screen, then navigate home after 2 seconds
     setScreenState('success');
-    setTimeout(() => {
-      router.replace('/home');
-    }, 2000);
+    setTimeout(() => router.replace('/home'), 5000);
   };
 
   return (
     <GradientBackground theme={screenState === 'success' ? 'warm' : 'dawn'} animated>
-      {/* Disable iOS swipe-back gesture so user cannot bypass alarm by swiping */}
       <Stack.Screen options={{ gestureEnabled: false }} />
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         {screenState === 'success' ? (
@@ -193,13 +135,11 @@ export default function AlarmRingingScreen() {
           </View>
         ) : (
           <View style={styles.content}>
-            {/* Time Display */}
             <View style={styles.timeContainer}>
               <Text style={styles.time}>{time}</Text>
               <Text style={styles.alarmName}>{alarmName}</Text>
             </View>
 
-            {/* Pulsing Glow */}
             <View style={styles.glowContainer}>
               <PulsingGlow size={300} color="#F4C07A" />
               <View style={styles.scanIcon}>
@@ -211,7 +151,6 @@ export default function AlarmRingingScreen() {
               </View>
             </View>
 
-            {/* Instructions + status message */}
             <View style={styles.instructions}>
               <Text style={styles.instructionText}>
                 {screenState === 'scanning'
@@ -223,17 +162,13 @@ export default function AlarmRingingScreen() {
               )}
             </View>
 
-            {/* Scan Button */}
             <TouchableOpacity
               onPress={handleScanNFC}
               disabled={screenState === 'scanning'}
               activeOpacity={0.8}
               style={styles.scanButton}
             >
-              <View style={[
-                styles.scanButtonInner,
-                screenState === 'scanning' && styles.scanButtonDisabled,
-              ]}>
+              <View style={[styles.scanButtonInner, screenState === 'scanning' && styles.scanButtonDisabled]}>
                 <Text style={styles.scanButtonText}>
                   {screenState === 'scanning' ? 'Scanning...' : 'Tap to Scan'}
                 </Text>
@@ -247,18 +182,13 @@ export default function AlarmRingingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   content: {
     flex: 1,
     paddingHorizontal: 32,
     justifyContent: 'space-around',
   },
-  timeContainer: {
-    alignItems: 'center',
-    marginTop: 48,
-  },
+  timeContainer: { alignItems: 'center', marginTop: 48 },
   time: {
     fontSize: 72,
     fontWeight: '300',
@@ -281,9 +211,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  instructions: {
-    alignItems: 'center',
-  },
+  instructions: { alignItems: 'center' },
   instructionText: {
     fontSize: 18,
     color: '#0C0C0C',
@@ -300,9 +228,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: '500',
   },
-  scanButton: {
-    marginBottom: 24,
-  },
+  scanButton: { marginBottom: 24 },
   scanButtonInner: {
     backgroundColor: 'rgba(12, 12, 12, 0.2)',
     height: 72,
@@ -312,9 +238,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#0C0C0C',
   },
-  scanButtonDisabled: {
-    opacity: 0.5,
-  },
+  scanButtonDisabled: { opacity: 0.5 },
   scanButtonText: {
     fontSize: 24,
     fontWeight: '600',

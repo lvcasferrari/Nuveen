@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -11,22 +11,28 @@ import { GradientBackground } from '../components/GradientBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAlarms } from '../contexts/AlarmContext';
+import { useThemeColors } from '../contexts/GradientContext';
+import { Alarm, getActiveAlarm, ActiveAlarm } from '../utils/storage';
 import { Ionicons } from '@expo/vector-icons';
 import { format, differenceInMinutes, addDays, set } from 'date-fns';
 
 export default function HomeScreen() {
   const { alarms, refreshAlarms } = useAlarms();
+  const { text, textFaded, textLight, card } = useThemeColors();
+  const [activeAlarm, setActiveAlarm] = useState<ActiveAlarm | null>(null);
 
   useEffect(() => {
     refreshAlarms();
+    getActiveAlarm().then(setActiveAlarm).catch(() => {});
   }, []);
 
-  const nextAlarm = useMemo(() => {
+  type NextAlarm = Alarm & { scheduledTime: Date; minutesUntil: number };
+  const nextAlarm = useMemo((): NextAlarm | null => {
     const enabledAlarms = alarms.filter(a => a.enabled);
     if (enabledAlarms.length === 0) return null;
 
     const now = new Date();
-    let closestAlarm = null;
+    let closestAlarm: NextAlarm | null = null;
     let minDiff = Infinity;
 
     enabledAlarms.forEach(alarm => {
@@ -55,45 +61,76 @@ export default function HomeScreen() {
   };
 
   return (
-    <GradientBackground theme="dawn" animated>
+    <GradientBackground animated>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.logo}>nuveen</Text>
+            <Text style={[styles.logo, { color: text }]}>nuveen</Text>
             <TouchableOpacity
               onPress={() => router.push('/settings')}
-              style={styles.settingsButton}
+              style={[styles.settingsButton, { backgroundColor: card }]}
             >
-              <Ionicons name="settings-outline" size={24} color="#0C0C0C" />
+              <Ionicons name="settings-outline" size={24} color={text} />
             </TouchableOpacity>
           </View>
 
           {/* Main Card */}
           <View style={styles.mainCard}>
             {nextAlarm ? (
-              <View style={styles.alarmCard}>
-                <Text style={styles.cardLabel}>Next Alarm</Text>
-                <Text style={styles.alarmTime}>{nextAlarm.time}</Text>
-                <Text style={styles.alarmName}>{nextAlarm.name || 'Alarm'}</Text>
-                <Text style={styles.countdown}>
+              <View style={[styles.alarmCard, { backgroundColor: card }]}>
+                <Text style={[styles.cardLabel, { color: textFaded }]}>Next Alarm</Text>
+                <Text style={[styles.alarmTime, { color: text }]}>{nextAlarm.time}</Text>
+                <Text style={[styles.alarmName, { color: text }]}>{nextAlarm.name || 'Alarm'}</Text>
+                <Text style={[styles.countdown, { color: textFaded }]}>
                   {formatCountdown(nextAlarm.minutesUntil)}
                 </Text>
                 {nextAlarm.nfcRequired && (
-                  <View style={styles.nfcBadge}>
+                  <View style={[styles.nfcBadge, { backgroundColor: card }]}>
                     <Ionicons name="scan" size={16} color="#F4C07A" />
-                    <Text style={styles.nfcText}>NFC Required</Text>
+                    <Text style={[styles.nfcText, { color: text }]}>NFC Required</Text>
                   </View>
                 )}
               </View>
             ) : (
-              <View style={styles.noAlarmCard}>
-                <Ionicons name="moon-outline" size={64} color="rgba(12, 12, 12, 0.3)" />
-                <Text style={styles.noAlarmText}>No alarms set</Text>
-                <Text style={styles.noAlarmSubtext}>Create your first morning ritual</Text>
+              <View style={[styles.noAlarmCard, { backgroundColor: card }]}>
+                <Ionicons name="moon-outline" size={64} color={textLight} />
+                <Text style={[styles.noAlarmText, { color: textFaded }]}>No alarms set</Text>
+                <Text style={[styles.noAlarmSubtext, { color: textLight }]}>Create your first morning ritual</Text>
               </View>
             )}
           </View>
+
+          {/* SOS: Stop Ringing Alarm */}
+          {activeAlarm && (
+            <TouchableOpacity
+              onPress={() => router.push({
+                pathname: '/alarm-ringing',
+                params: {
+                  alarmId: activeAlarm.alarmId,
+                  alarmName: activeAlarm.alarmName,
+                  time: activeAlarm.alarmTime,
+                  customSoundUri: activeAlarm.customSoundUri ?? '',
+                },
+              })}
+              activeOpacity={0.8}
+              style={styles.sosCard}
+            >
+              <LinearGradient
+                colors={['#FF4444', '#CC0000']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.sosCardInner}
+              >
+                <Ionicons name="scan" size={28} color="#fff" />
+                <View style={{ flex: 1, marginLeft: 16 }}>
+                  <Text style={styles.sosTitle}>Alarm is Ringing!</Text>
+                  <Text style={styles.sosSubtitle}>Tap to scan NFC and stop</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color="#fff" />
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
 
           {/* Action Buttons */}
           <View style={styles.actions}>
@@ -236,6 +273,25 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: 16,
+  },
+  sosCard: {
+    marginBottom: 16,
+  },
+  sosCardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    borderRadius: 24,
+  },
+  sosTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  sosSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 2,
   },
   actionButton: {
     flexDirection: 'row',

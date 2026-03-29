@@ -8,14 +8,17 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
+import { useGradient } from '../contexts/GradientContext';
+
+type GradientTheme = 'dawn' | 'amber' | 'warm' | 'dark';
 
 interface GradientBackgroundProps {
-  theme?: 'dawn' | 'amber' | 'warm' | 'dark';
+  theme?: GradientTheme;
   animated?: boolean;
   children?: React.ReactNode;
 }
 
-const GRADIENT_THEMES = {
+const GRADIENT_THEMES: Record<GradientTheme, string[]> = {
   dawn: ['#F4C07A', '#EAA85B', '#F4C07A'],
   amber: ['#EAA85B', '#F4C07A', '#EAA85B'],
   warm: ['#F4C07A', '#D7D3CC', '#F4C07A'],
@@ -25,34 +28,31 @@ const GRADIENT_THEMES = {
 const { width, height } = Dimensions.get('window');
 
 export const GradientBackground: React.FC<GradientBackgroundProps> = ({
-  theme = 'dawn',
+  theme,
   animated = false,
   children,
 }) => {
+  const { gradientStyle } = useGradient();
+  const activeTheme: GradientTheme = theme ?? gradientStyle;
   const opacity = useSharedValue(1);
 
   useEffect(() => {
     if (animated) {
       opacity.value = withRepeat(
-        withTiming(0.7, {
-          duration: 3000,
-          easing: Easing.inOut(Easing.ease),
-        }),
+        withTiming(0.7, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
         -1,
         true
       );
     }
   }, [animated]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
   return (
     <View style={styles.container}>
       <Animated.View style={[StyleSheet.absoluteFill, animated && animatedStyle]}>
         <LinearGradient
-          colors={GRADIENT_THEMES[theme]}
+          colors={GRADIENT_THEMES[activeTheme] as [string, string, ...string[]]}
           style={StyleSheet.absoluteFill}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -66,7 +66,7 @@ export const GradientBackground: React.FC<GradientBackgroundProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    width: width,
-    height: height,
+    width,
+    height,
   },
 });

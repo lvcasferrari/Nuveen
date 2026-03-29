@@ -1,10 +1,10 @@
 import React, { useEffect, useRef } from 'react';
-import { Stack } from 'expo-router';
-import { router } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { AlarmProvider } from '../contexts/AlarmContext';
 import { GradientProvider } from '../contexts/GradientContext';
-import { requestNotificationPermissions } from '../utils/notifications';
+import { requestNotificationPermissions, setupNotificationChannel } from '../utils/notifications';
 import { getActiveAlarm } from '../utils/storage';
+import { startAlarmSound, configureAudioSession } from '../utils/alarmAudio';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
@@ -12,12 +12,35 @@ import * as Notifications from 'expo-notifications';
 export default function RootLayout() {
   const notificationSubscription = useRef<Notifications.Subscription | null>(null);
 
+  const receivedSubscription = useRef<Notifications.Subscription | null>(null);
+
   useEffect(() => {
-    // Request permissions when app loads
     requestNotificationPermissions().catch(console.error);
+    setupNotificationChannel().catch(console.error);
+
+    const navigateToAlarm = (data: Record<string, unknown>) => {
+      if (data?.alarmId) {
+        // Fire alarm sound immediately — don't wait for UI navigation
+        const uri = (data.customSoundUri as string) || undefined;
+        configureAudioSession()
+          .then(() => startAlarmSound(uri))
+          .catch(() => {});
+
+        router.replace({
+          pathname: '/alarm-ringing',
+          params: {
+            alarmId: data.alarmId as string,
+            alarmName: (data.alarmName as string) ?? 'Alarm',
+            time: (data.alarmTime as string) ?? '',
+            customSoundUri: (data.customSoundUri as string) ?? '',
+          },
+        });
+      }
+    };
 
     // Restore active alarm session if one was interrupted (e.g. app killed while alarm was ringing)
     const checkActiveAlarm = async () => {
+      // First try stored active alarm
       const active = await getActiveAlarm();
       if (active) {
         router.replace({
@@ -29,31 +52,35 @@ export default function RootLayout() {
             customSoundUri: active.customSoundUri ?? '',
           },
         });
+        return;
+      }
+      // Fallback: check if there's a delivered alarm notification (app killed while alarm fired)
+      try {
+        const presented = await Notifications.getPresentedNotificationsAsync();
+        const alarmNotif = presented.find(n => n.request.content.data?.alarmId);
+        if (alarmNotif) {
+          const data = alarmNotif.request.content.data as Record<string, unknown>;
+          navigateToAlarm(data);
+        }
+      } catch {
+        // getPresentedNotificationsAsync may not be available on all platforms
       }
     };
-    // Defer slightly to allow the navigator stack to mount before replacing
     const restoreTimer = setTimeout(() => checkActiveAlarm(), 200);
 
-    // Navigate to alarm-ringing when user taps an alarm notification
+    // Navigate immediately when notification arrives (app running in foreground/background)
+    receivedSubscription.current = Notifications.addNotificationReceivedListener(
+      (notification) => navigateToAlarm(notification.request.content.data as Record<string, unknown>)
+    );
+
+    // Navigate to alarm-ringing when user taps an alarm notification (app killed/suspended)
     notificationSubscription.current = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        const data = response.notification.request.content.data;
-        if (data?.alarmId) {
-          router.replace({
-            pathname: '/alarm-ringing',
-            params: {
-              alarmId: data.alarmId as string,
-              alarmName: (data.alarmName as string) ?? 'Alarm',
-              time: (data.alarmTime as string) ?? '',
-              customSoundUri: (data.customSoundUri as string) ?? '',
-            },
-          });
-        }
-      }
+      (response) => navigateToAlarm(response.notification.request.content.data as Record<string, unknown>)
     );
 
     return () => {
       clearTimeout(restoreTimer);
+      receivedSubscription.current?.remove();
       notificationSubscription.current?.remove();
     };
   }, []);

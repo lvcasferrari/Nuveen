@@ -36,8 +36,8 @@ export default function NFCSetupScreen() {
 
       if (tagId) {
         const settings = await getSettings();
-        settings.nfcTagId = tagId;
-        await saveSettings(settings);
+        const newTag = { id: Date.now().toString(), name: 'My Tag', tagId };
+        await saveSettings({ ...settings, nfcTags: [...settings.nfcTags, newTag] });
         setTagScanned(true);
 
         setTimeout(() => {

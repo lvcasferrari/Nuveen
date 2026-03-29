@@ -12,8 +12,14 @@ export interface Alarm {
   soundName?: string; // Nome do arquivo de áudio
 }
 
+export interface NfcTag {
+  id: string;
+  name: string;
+  tagId: string;
+}
+
 export interface Settings {
-  nfcTagId: string | null;
+  nfcTags: NfcTag[];
   theme: 'light' | 'dark' | 'auto';
   vibrationEnabled: boolean;
   gradientStyle: 'dawn' | 'amber' | 'warm' | 'dark';
@@ -83,24 +89,28 @@ export const deleteAlarm = async (id: string): Promise<void> => {
   await saveAlarms(filtered);
 };
 
+const DEFAULT_SETTINGS: Settings = {
+  nfcTags: [],
+  theme: 'auto',
+  vibrationEnabled: true,
+  gradientStyle: 'dawn',
+};
+
 // Settings
 export const getSettings = async (): Promise<Settings> => {
   try {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
-    return data ? JSON.parse(data) : {
-      nfcTagId: null,
-      theme: 'auto',
-      vibrationEnabled: true,
-      gradientStyle: 'dawn',
-    };
+    if (!data) return DEFAULT_SETTINGS;
+    const parsed = JSON.parse(data);
+    // Migrate from old single nfcTagId to nfcTags array
+    if (parsed.nfcTagId && !parsed.nfcTags) {
+      parsed.nfcTags = [{ id: '1', name: 'My Tag', tagId: parsed.nfcTagId }];
+      delete parsed.nfcTagId;
+    }
+    return { ...DEFAULT_SETTINGS, ...parsed };
   } catch (error) {
     console.error('Error getting settings:', error);
-    return {
-      nfcTagId: null,
-      theme: 'auto',
-      vibrationEnabled: true,
-      gradientStyle: 'dawn',
-    };
+    return DEFAULT_SETTINGS;
   }
 };
 

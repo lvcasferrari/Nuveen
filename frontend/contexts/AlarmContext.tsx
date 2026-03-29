@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Alarm, getAlarms, saveAlarms, addAlarm as addAlarmStorage, updateAlarm as updateAlarmStorage, deleteAlarm as deleteAlarmStorage } from '../utils/storage';
 import { scheduleAlarmNotification, cancelAlarmNotification } from '../utils/notifications';
+import { startBackgroundAlarmMonitor, stopBackgroundAlarmMonitor } from '../utils/backgroundAlarm';
 
 interface AlarmContextType {
   alarms: Alarm[];
@@ -22,6 +23,12 @@ export const AlarmProvider = ({ children }: { children: ReactNode }) => {
     try {
       const loadedAlarms = await getAlarms();
       setAlarms(loadedAlarms);
+      // Keep background monitor in sync
+      if (loadedAlarms.some(a => a.enabled)) {
+        startBackgroundAlarmMonitor();
+      } else {
+        stopBackgroundAlarmMonitor();
+      }
     } catch (error) {
       console.error('Error refreshing alarms:', error);
     } finally {

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Nuveen",
     "slug": "nuveen",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "scheme": "nuveen",
     "userInterfaceStyle": "automatic",
@@ -12,13 +12,21 @@
       "infoPlist": {
         "NFCReaderUsageDescription": "Nuveen needs NFC access to scan your tag and stop alarms.",
         "ITSAppUsesNonExemptEncryption": false,
+        "UIFileSharingEnabled": true,
+        "LSSupportsOpeningDocumentsInPlace": true,
         "UIBackgroundModes": [
           "audio",
           "processing",
           "fetch"
+        ],
+        "BGTaskSchedulerPermittedIdentifiers": [
+          "com.nuveen.alarm.background"
         ]
       },
       "bundleIdentifier": "com.nuveen.alarm",
+      "entitlements": {
+        "com.apple.developer.nfc.readersession.formats": ["TAG"]
+      },
       "config": {
         "usesNonExemptEncryption": false
       }
@@ -47,9 +55,11 @@
       [
         "expo-notifications",
         {
-          "color": "#F4C07A"
+          "color": "#F4C07A",
+          "sounds": ["./assets/sounds/alarm.mp3"]
         }
-      ]
+      ],
+      "expo-document-picker"
     ],
     "experiments": {
       "typedRoutes": true
