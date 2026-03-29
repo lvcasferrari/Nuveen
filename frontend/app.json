@@ -17,7 +17,8 @@
         "UIBackgroundModes": [
           "audio",
           "processing",
-          "fetch"
+          "fetch",
+          "remote-notification"
         ],
         "BGTaskSchedulerPermittedIdentifiers": [
           "com.nuveen.alarm.background"
@@ -37,7 +38,12 @@
         "android.permission.SCHEDULE_EXACT_ALARM",
         "android.permission.USE_EXACT_ALARM",
         "android.permission.VIBRATE",
-        "android.permission.RECEIVE_BOOT_COMPLETED"
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.WAKE_LOCK",
+        "android.permission.USE_FULL_SCREEN_INTENT",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.DISABLE_KEYGUARD"
       ],
       "edgeToEdgeEnabled": true,
       "package": "com.nuveen.alarm"

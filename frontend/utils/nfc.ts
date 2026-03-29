@@ -46,17 +46,16 @@ export const readNFCTag = async (): Promise<string | null> => {
   }
 
   try {
-    const available = await isNFCAvailable();
-    if (!available) {
-      throw new Error('NFC is not available on this device');
-    }
+    // Ensure NFC manager is started (idempotent)
+    await NfcManager.start().catch(() => {});
 
+    // On Android, try multiple technologies for broader tag compatibility
     const techList = Platform.OS === 'ios'
       ? [NfcTech.Ndef]
-      : [NfcTech.Ndef, NfcTech.IsoDep, NfcTech.NfcA];
+      : [NfcTech.NfcA, NfcTech.Ndef, NfcTech.IsoDep];
 
     await NfcManager.requestTechnology(techList, {
-      isAlertDialogEnabled: true,
+      isAlertDialogEnabled: Platform.OS === 'ios',
       alertMessage: 'Hold your Nuveen tag near your phone to scan',
     });
 
@@ -77,8 +76,8 @@ export const readNFCTag = async (): Promise<string | null> => {
     // Cancel technology request
     try {
       await NfcManager.cancelTechnologyRequest();
-    } catch (e) {
-      console.warn('Error cancelling technology request:', e);
+    } catch {
+      // Ignore cancellation errors
     }
 
     // Return tag ID with fallback
@@ -92,12 +91,16 @@ export const readNFCTag = async (): Promise<string | null> => {
     }
 
     return null;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error reading NFC tag:', error);
     try {
       await NfcManager.cancelTechnologyRequest();
-    } catch (e) {
+    } catch {
       // Ignore cancellation errors
+    }
+    // Re-throw user-cancelled errors so UI can differentiate
+    if (error?.message?.includes('cancelled') || error?.message?.includes('canceled')) {
+      throw new Error('Scan cancelled. Tap to try again.');
     }
     return null;
   }
