@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { getAlarms, setActiveAlarm } from './storage';
+import { getAlarms, setActiveAlarm, getActiveAlarm } from './storage';
 import {
   startSilentKeepAlive,
   stopSilentKeepAlive,
@@ -7,7 +7,9 @@ import {
 } from './alarmAudio';
 
 let checker: ReturnType<typeof setInterval> | null = null;
-let triggeredMinute = -1;
+// Track which alarm ID was triggered at which minute-of-day to prevent double-fire
+// Resets automatically when minute changes, allowing same alarm to fire next day
+let lastTriggeredKey = '';
 
 export const startBackgroundAlarmMonitor = async (): Promise<void> => {
   if (checker) return; // already running
@@ -16,19 +18,31 @@ export const startBackgroundAlarmMonitor = async (): Promise<void> => {
     await startSilentKeepAlive();
 
     checker = setInterval(async () => {
+      // Don't trigger if an alarm is already actively ringing
+      const active = await getActiveAlarm();
+      if (active) return;
+
       const now = new Date();
-      const currentMinute = now.getHours() * 60 + now.getMinutes();
-      if (currentMinute === triggeredMinute) return;
+      const currentDay = now.getDay(); // 0=Sunday
+      const currentHour = now.getHours();
+      const currentMin = now.getMinutes();
+      const timeKey = `${currentDay}-${currentHour}:${currentMin}`;
+
+      // Already triggered this exact day+minute combo
+      if (timeKey === lastTriggeredKey) return;
 
       const alarms = await getAlarms();
       const due = alarms.find(a => {
         if (!a.enabled) return false;
         const [h, m] = a.time.split(':').map(Number);
-        return h === now.getHours() && m === now.getMinutes();
+        if (h !== currentHour || m !== currentMin) return false;
+        // If alarm has repeat days, check if today is included
+        if (a.repeatDays.length > 0 && !a.repeatDays.includes(currentDay)) return false;
+        return true;
       });
 
       if (due) {
-        triggeredMinute = currentMinute;
+        lastTriggeredKey = timeKey;
 
         // Store active alarm BEFORE navigating so cold-start restore works
         await setActiveAlarm({
@@ -62,5 +76,5 @@ export const startBackgroundAlarmMonitor = async (): Promise<void> => {
 export const stopBackgroundAlarmMonitor = async (): Promise<void> => {
   if (checker) { clearInterval(checker); checker = null; }
   await stopSilentKeepAlive();
-  triggeredMinute = -1;
+  lastTriggeredKey = '';
 };

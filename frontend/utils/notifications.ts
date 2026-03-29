@@ -43,7 +43,7 @@ export const requestNotificationPermissions = async (): Promise<boolean> => {
           allowAlert: true,
           allowBadge: false,
           allowSound: true,
-          allowCriticalAlerts: false,
+          allowCriticalAlerts: true,
         },
       });
       finalStatus = status;
@@ -56,6 +56,29 @@ export const requestNotificationPermissions = async (): Promise<boolean> => {
   }
 };
 
+const buildAlarmContent = (alarm: Alarm): Notifications.NotificationContentInput => ({
+  title: alarm.name || 'Nuveen Alarm',
+  body: 'Scan your NFC tag to stop the alarm',
+  sound: 'alarm.mp3',
+  priority: Notifications.AndroidNotificationPriority.MAX,
+  vibrate: [0, 500, 500, 500],
+  sticky: true,
+  autoDismiss: false,
+  data: {
+    alarmId: alarm.id,
+    requiresNFC: alarm.nfcRequired,
+    alarmName: alarm.name,
+    alarmTime: alarm.time,
+    customSoundUri: alarm.customSoundUri ?? null,
+  },
+  ...(Platform.OS === 'android' && {
+    channelId: ALARM_CHANNEL_ID,
+  }),
+  ...(Platform.OS === 'ios' && {
+    interruptionLevel: 'timeSensitive',
+  }),
+});
+
 export const scheduleAlarmNotification = async (alarm: Alarm): Promise<string | null> => {
   try {
     await cancelAlarmNotification(alarm.id);
@@ -63,47 +86,52 @@ export const scheduleAlarmNotification = async (alarm: Alarm): Promise<string | 
     if (!alarm.enabled) return null;
 
     const [hours, minutes] = alarm.time.split(':').map(Number);
+    const content = buildAlarmContent(alarm);
 
-    // One-time alarms need a Date trigger; repeating alarms use calendar trigger
-    const now = new Date();
-    const scheduledTime = new Date();
-    scheduledTime.setHours(hours, minutes, 0, 0);
-    if (scheduledTime <= now) {
-      scheduledTime.setDate(scheduledTime.getDate() + 1);
+    // Weekly repeating: schedule one notification per selected day
+    if (alarm.repeatDays.length > 0) {
+      const ids: string[] = [];
+      for (const weekday of alarm.repeatDays) {
+        // expo-notifications weekday: 1=Sunday...7=Saturday
+        // our repeatDays: 0=Sunday...6=Saturday
+        const notificationId = await Notifications.scheduleNotificationAsync({
+          content,
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+            weekday: weekday + 1,
+            hour: hours,
+            minute: minutes,
+            channelId: Platform.OS === 'android' ? ALARM_CHANNEL_ID : undefined,
+          },
+        });
+        ids.push(notificationId);
+      }
+      console.log(`Alarm scheduled: ${alarm.name} at ${alarm.time} on days [${alarm.repeatDays}] (IDs: ${ids.join(',')})`);
+      return ids[0];
     }
 
-    const trigger: any = alarm.repeatDays.length > 0
-      ? { hour: hours, minute: minutes, repeats: true }
-      : scheduledTime;
+    // Daily repeating (no specific days = every day)
+    if (alarm.repeatDays.length === 0) {
+      const now = new Date();
+      const scheduledTime = new Date();
+      scheduledTime.setHours(hours, minutes, 0, 0);
+      if (scheduledTime <= now) {
+        scheduledTime.setDate(scheduledTime.getDate() + 1);
+      }
 
-    const notificationId = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: alarm.name || 'Nuveen Alarm',
-        body: 'Scan your NFC tag to stop the alarm',
-        sound: 'alarm.mp3',
-        priority: Notifications.AndroidNotificationPriority.MAX,
-        vibrate: [0, 500, 500, 500],
-        sticky: true,
-        autoDismiss: false,
-        data: {
-          alarmId: alarm.id,
-          requiresNFC: alarm.nfcRequired,
-          alarmName: alarm.name,
-          alarmTime: alarm.time,
-          customSoundUri: alarm.customSoundUri ?? null,
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content,
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: scheduledTime,
+          channelId: Platform.OS === 'android' ? ALARM_CHANNEL_ID : undefined,
         },
-        ...(Platform.OS === 'android' && {
-          channelId: ALARM_CHANNEL_ID,
-        }),
-        ...(Platform.OS === 'ios' && {
-          interruptionLevel: 'timeSensitive',
-        }),
-      },
-      trigger,
-    });
+      });
+      console.log(`Alarm scheduled: ${alarm.name} at ${alarm.time} one-time (ID: ${notificationId})`);
+      return notificationId;
+    }
 
-    console.log(`Alarm scheduled: ${alarm.name} at ${alarm.time} (ID: ${notificationId})`);
-    return notificationId;
+    return null;
   } catch (error) {
     console.error('Error scheduling alarm notification:', error);
     return null;

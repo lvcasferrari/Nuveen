@@ -6,6 +6,7 @@ let _silentSound: Audio.Sound | null = null;
 let _isRinging = false;
 let _currentCustomSoundUri: string | undefined;
 let _volumeSubscription: ReturnType<typeof VolumeManager.addVolumeListener> | null = null;
+let _soundWatchdog: ReturnType<typeof setInterval> | null = null;
 
 export const configureAudioSession = async (): Promise<void> => {
   await Audio.setAudioModeAsync({
@@ -23,7 +24,7 @@ export const startSilentKeepAlive = async (): Promise<void> => {
     await configureAudioSession();
     const { sound } = await Audio.Sound.createAsync(
       require('../assets/sounds/alarm.mp3'),
-      { shouldPlay: true, isLooping: true, volume: 0.001 } // non-zero keeps iOS audio session alive
+      { shouldPlay: true, isLooping: true, volume: 0.001 }
     );
     _silentSound = sound;
   } catch (err) {
@@ -46,6 +47,9 @@ const _loadAndPlayAlarm = async (customSoundUri?: string): Promise<void> => {
     await _alarmSound.unloadAsync().catch(() => {});
     _alarmSound = null;
   }
+
+  // Ensure audio session is configured before every play attempt
+  await configureAudioSession();
 
   const sources: (object | number)[] = [
     ...(customSoundUri ? [{ uri: customSoundUri }] : []),
@@ -70,12 +74,10 @@ const _loadAndPlayAlarm = async (customSoundUri?: string): Promise<void> => {
 // Volume guard: when user presses volume down, immediately reset to max and restart sound
 const _startVolumeGuard = async (): Promise<void> => {
   try {
-    // Crank volume to max immediately
     await VolumeManager.setVolume(1.0, { showUI: false });
 
     _volumeSubscription = VolumeManager.addVolumeListener(async ({ volume }) => {
       if (!_isRinging) return;
-      // Intercept ANY volume decrease and immediately restore + restart
       if (volume < 1.0) {
         await VolumeManager.setVolume(1.0, { showUI: false });
         await _loadAndPlayAlarm(_currentCustomSoundUri);
@@ -93,6 +95,32 @@ const _stopVolumeGuard = (): void => {
   }
 };
 
+// Watchdog: periodically check if sound is still playing, restart if OS killed it
+const _startSoundWatchdog = (): void => {
+  if (_soundWatchdog) return;
+  _soundWatchdog = setInterval(async () => {
+    if (!_isRinging || !_alarmSound) return;
+    try {
+      const status = await _alarmSound.getStatusAsync();
+      if (!status.isLoaded || !status.isPlaying) {
+        // Sound was interrupted by OS or another audio event — restart it
+        await _loadAndPlayAlarm(_currentCustomSoundUri);
+        await VolumeManager.setVolume(1.0, { showUI: false }).catch(() => {});
+      }
+    } catch {
+      // Sound object is dead — reload
+      await _loadAndPlayAlarm(_currentCustomSoundUri);
+    }
+  }, 3000);
+};
+
+const _stopSoundWatchdog = (): void => {
+  if (_soundWatchdog) {
+    clearInterval(_soundWatchdog);
+    _soundWatchdog = null;
+  }
+};
+
 export const startAlarmSound = async (customSoundUri?: string): Promise<void> => {
   if (_isRinging) return;
   _isRinging = true;
@@ -103,11 +131,13 @@ export const startAlarmSound = async (customSoundUri?: string): Promise<void> =>
 
   await _loadAndPlayAlarm(customSoundUri);
   await _startVolumeGuard();
+  _startSoundWatchdog();
 };
 
 export const stopAlarmSound = async (): Promise<void> => {
   _isRinging = false;
   _stopVolumeGuard();
+  _stopSoundWatchdog();
   if (_alarmSound) {
     await _alarmSound.stopAsync().catch(() => {});
     await _alarmSound.unloadAsync().catch(() => {});

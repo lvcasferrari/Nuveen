@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import {
   incrementNfcFailedAttempts,
 } from '../utils/storage';
 import * as Haptics from 'expo-haptics';
+import * as Notifications from 'expo-notifications';
 import { startAlarmSound, stopAlarmSound, isAlarmRinging, configureAudioSession } from '../utils/alarmAudio';
 
 type ScreenState = 'ringing' | 'scanning' | 'success';
@@ -34,6 +35,7 @@ export default function AlarmRingingScreen() {
 
   const [screenState, setScreenState] = useState<ScreenState>('ringing');
   const [nfcStatusMessage, setNfcStatusMessage] = useState<string | null>(null);
+  const vibrationRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     setActiveAlarm({
@@ -45,14 +47,25 @@ export default function AlarmRingingScreen() {
       startedAt: new Date().toISOString(),
     }).catch(console.error);
 
+    // Start persistent vibration — restart every 10s to ensure it doesn't stop
     Vibration.vibrate([0, 1000, 500, 1000], true);
+    vibrationRef.current = setInterval(() => {
+      if (screenState !== 'success') {
+        Vibration.vibrate([0, 1000, 500, 1000], true);
+      }
+    }, 10000);
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     playAlarmSound();
+
+    // Dismiss any alarm notifications from the tray (user is now on the ringing screen)
+    Notifications.dismissAllNotificationsAsync().catch(() => {});
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => true);
 
     return () => {
       Vibration.cancel();
+      if (vibrationRef.current) clearInterval(vibrationRef.current);
       backHandler.remove();
       stopAlarmSound().catch(() => {});
     };
@@ -110,8 +123,14 @@ export default function AlarmRingingScreen() {
 
   const handleSuccessfulDismiss = async () => {
     Vibration.cancel();
+    if (vibrationRef.current) {
+      clearInterval(vibrationRef.current);
+      vibrationRef.current = null;
+    }
     await stopAlarmSound();
     await clearActiveAlarm();
+    // Dismiss any remaining alarm notifications
+    await Notifications.dismissAllNotificationsAsync().catch(() => {});
     await addWakeLog({
       id: Date.now().toString(),
       date: new Date().toISOString(),
@@ -125,7 +144,7 @@ export default function AlarmRingingScreen() {
 
   return (
     <GradientBackground theme={screenState === 'success' ? 'warm' : 'dawn'} animated>
-      <Stack.Screen options={{ gestureEnabled: false }} />
+      <Stack.Screen options={{ gestureEnabled: false, headerShown: false, animation: 'none' }} />
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         {screenState === 'success' ? (
           <View style={styles.successContainer}>
