@@ -25,26 +25,17 @@ export interface Settings {
   gradientStyle: 'dawn' | 'amber' | 'warm' | 'dark';
 }
 
-export interface WakeLog {
-  id: string;
-  date: string;
-  alarmId: string;
-  wakeTime: string;
-}
-
 export interface ActiveAlarm {
   alarmId: string;
   alarmName: string;
   alarmTime: string;       // HH:mm
   customSoundUri?: string;
-  nfcFailedAttempts: number;
   startedAt: string;       // ISO timestamp
 }
 
 const STORAGE_KEYS = {
   ALARMS: '@nuveen:alarms',
   SETTINGS: '@nuveen:settings',
-  WAKE_LOGS: '@nuveen:wake_logs',
   ONBOARDING_COMPLETE: '@nuveen:onboarding_complete',
   ACTIVE_ALARM: '@nuveen:active_alarm',
 };
@@ -122,27 +113,6 @@ export const saveSettings = async (settings: Settings): Promise<void> => {
   }
 };
 
-// Wake Logs
-export const getWakeLogs = async (): Promise<WakeLog[]> => {
-  try {
-    const data = await AsyncStorage.getItem(STORAGE_KEYS.WAKE_LOGS);
-    return data ? JSON.parse(data) : [];
-  } catch (error) {
-    console.error('Error getting wake logs:', error);
-    return [];
-  }
-};
-
-export const addWakeLog = async (log: WakeLog): Promise<void> => {
-  try {
-    const logs = await getWakeLogs();
-    logs.push(log);
-    await AsyncStorage.setItem(STORAGE_KEYS.WAKE_LOGS, JSON.stringify(logs));
-  } catch (error) {
-    console.error('Error adding wake log:', error);
-  }
-};
-
 // Onboarding
 export const isOnboardingComplete = async (): Promise<boolean> => {
   try {
@@ -186,18 +156,5 @@ export const clearActiveAlarm = async (): Promise<void> => {
     await AsyncStorage.removeItem(STORAGE_KEYS.ACTIVE_ALARM);
   } catch (error) {
     console.error('Error clearing active alarm:', error);
-  }
-};
-
-export const incrementNfcFailedAttempts = async (): Promise<number> => {
-  try {
-    const active = await getActiveAlarm();
-    if (!active) return 0;
-    const updated = { ...active, nfcFailedAttempts: active.nfcFailedAttempts + 1 };
-    await setActiveAlarm(updated);
-    return updated.nfcFailedAttempts;
-  } catch (error) {
-    console.error('Error incrementing NFC failed attempts:', error);
-    return 0;
   }
 };

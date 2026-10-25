@@ -4,13 +4,9 @@ import { Alarm } from './storage';
 
 const ALARM_CHANNEL_ID = 'nuveen_alarms';
 
-// Number of follow-up notifications to schedule after the main alarm.
-// Each fires 1 minute apart, so 5 follow-ups = 5 minutes of repeated ringing.
-// This is critical on iOS: when the app is closed, the ONLY way to make sound
-// is through notification sounds. Each notification plays the sound once (~4-30s),
-// then goes silent. Burst notifications keep "ringing" until the user opens the app.
-const BURST_COUNT = 5;
-const BURST_INTERVAL_SECONDS = 60;
+// One notification per alarm occurrence. iOS keeps only the 64 soonest pending
+// local notifications, so we must not multiply by bursts × weekdays. Continued
+// ringing once the app is opened is handled by the in-app sound watchdog.
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -78,11 +74,9 @@ export const requestNotificationPermissions = async (): Promise<boolean> => {
   }
 };
 
-const buildAlarmContent = (alarm: Alarm, burstIndex: number): Notifications.NotificationContentInput => ({
+const buildAlarmContent = (alarm: Alarm): Notifications.NotificationContentInput => ({
   title: alarm.name || 'Nuveen Alarm',
-  body: burstIndex === 0
-    ? 'Scan your NFC tag to stop the alarm'
-    : 'Alarm is still ringing! Open to scan NFC.',
+  body: 'Scan your NFC tag to stop the alarm',
   sound: 'alarm.mp3',
   priority: Notifications.AndroidNotificationPriority.MAX,
   vibrate: [0, 500, 500, 500],
@@ -95,7 +89,6 @@ const buildAlarmContent = (alarm: Alarm, burstIndex: number): Notifications.Noti
     alarmName: alarm.name,
     alarmTime: alarm.time,
     customSoundUri: alarm.customSoundUri ?? null,
-    burstIndex,
   },
   ...(Platform.OS === 'android' && {
     channelId: ALARM_CHANNEL_ID,
@@ -115,32 +108,24 @@ export const scheduleAlarmNotification = async (alarm: Alarm): Promise<string | 
     let firstId: string | null = null;
 
     if (alarm.repeatDays.length > 0) {
-      // Weekly repeating: schedule one set of burst notifications per selected day
+      // Weekly repeating: one notification per selected day.
+      // expo-notifications weekday: 1=Sunday...7=Saturday; our repeatDays: 0=Sunday...6=Saturday
       for (const weekday of alarm.repeatDays) {
-        // expo-notifications weekday: 1=Sunday...7=Saturday
-        // our repeatDays: 0=Sunday...6=Saturday
-        for (let burst = 0; burst <= BURST_COUNT; burst++) {
-          const burstMinute = minutes + burst;
-          const triggerHour = hours + Math.floor(burstMinute / 60);
-          const triggerMinute = burstMinute % 60;
-
-          const notificationId = await Notifications.scheduleNotificationAsync({
-            content: buildAlarmContent(alarm, burst),
-            trigger: {
-              type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-              weekday: weekday + 1,
-              hour: triggerHour % 24,
-              minute: triggerMinute,
-              channelId: Platform.OS === 'android' ? ALARM_CHANNEL_ID : undefined,
-            },
-          });
-
-          if (burst === 0 && !firstId) firstId = notificationId;
-        }
+        const notificationId = await Notifications.scheduleNotificationAsync({
+          content: buildAlarmContent(alarm),
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+            weekday: weekday + 1,
+            hour: hours,
+            minute: minutes,
+            channelId: Platform.OS === 'android' ? ALARM_CHANNEL_ID : undefined,
+          },
+        });
+        if (!firstId) firstId = notificationId;
       }
-      console.log(`Alarm scheduled: ${alarm.name} at ${alarm.time} on days [${alarm.repeatDays}] with ${BURST_COUNT} follow-ups`);
+      console.log(`Alarm scheduled: ${alarm.name} at ${alarm.time} on days [${alarm.repeatDays}]`);
     } else {
-      // One-time alarm: schedule DATE triggers for burst
+      // One-time alarm: a single DATE trigger at the next occurrence
       const now = new Date();
       const scheduledTime = new Date();
       scheduledTime.setHours(hours, minutes, 0, 0);
@@ -148,21 +133,15 @@ export const scheduleAlarmNotification = async (alarm: Alarm): Promise<string | 
         scheduledTime.setDate(scheduledTime.getDate() + 1);
       }
 
-      for (let burst = 0; burst <= BURST_COUNT; burst++) {
-        const burstTime = new Date(scheduledTime.getTime() + burst * BURST_INTERVAL_SECONDS * 1000);
-
-        const notificationId = await Notifications.scheduleNotificationAsync({
-          content: buildAlarmContent(alarm, burst),
-          trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.DATE,
-            date: burstTime,
-            channelId: Platform.OS === 'android' ? ALARM_CHANNEL_ID : undefined,
-          },
-        });
-
-        if (burst === 0) firstId = notificationId;
-      }
-      console.log(`Alarm scheduled: ${alarm.name} at ${alarm.time} one-time with ${BURST_COUNT} follow-ups`);
+      firstId = await Notifications.scheduleNotificationAsync({
+        content: buildAlarmContent(alarm),
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: scheduledTime,
+          channelId: Platform.OS === 'android' ? ALARM_CHANNEL_ID : undefined,
+        },
+      });
+      console.log(`Alarm scheduled: ${alarm.name} at ${alarm.time} one-time`);
     }
 
     return firstId;

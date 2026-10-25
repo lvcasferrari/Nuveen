@@ -37,7 +37,6 @@ export default function RootLayout() {
         alarmName: (data.alarmName as string) ?? 'Alarm',
         alarmTime: (data.alarmTime as string) ?? '',
         customSoundUri: uri,
-        nfcFailedAttempts: 0,
         startedAt: new Date().toISOString(),
       }).catch(() => {});
 

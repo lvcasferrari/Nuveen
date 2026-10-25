@@ -107,50 +107,14 @@ export const readNFCTag = async (): Promise<string | null> => {
 };
 
 /**
- * Generate a secure checksum for NFC tag validation
- * This helps ensure only properly configured tags can be used
- */
-export const generateNFCChecksum = (tagId: string): string => {
-  let hash = 0;
-  for (let i = 0; i < tagId.length; i++) {
-    const char = tagId.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  return Math.abs(hash).toString(16);
-};
-
-/**
- * Validate if scanned tag matches configured tag
- * Returns detailed validation result for security logging
+ * Validate a scanned tag against a configured tag.
+ * Exact match only. A null configured tag means none is set — caller decides policy.
  */
 export const validateNFCTag = (
   scannedTagId: string | null,
-  configuredTagId: string | null,
-  enabledMode: 'strict' | 'lenient' = 'lenient'
-): { valid: boolean; reason: string } => {
-  if (!scannedTagId) {
-    return { valid: false, reason: 'No tag data read' };
-  }
-
-  if (!configuredTagId) {
-    return { valid: true, reason: 'No tag configured - any tag accepted' };
-  }
-
-  // Exact match
-  if (scannedTagId === configuredTagId) {
-    return { valid: true, reason: 'Tag matches exactly' };
-  }
-
-  // Checksum match (for lenient mode)
-  if (enabledMode === 'lenient') {
-    const scannedChecksum = generateNFCChecksum(scannedTagId);
-    const configuredChecksum = generateNFCChecksum(configuredTagId);
-
-    if (scannedChecksum === configuredChecksum) {
-      return { valid: true, reason: 'Tag checksum matches' };
-    }
-  }
-
-  return { valid: false, reason: 'Tag does not match configured tag' };
+  configuredTagId: string | null
+): boolean => {
+  if (!scannedTagId) return false;
+  if (!configuredTagId) return true; // no tag configured — any tag accepted
+  return scannedTagId === configuredTagId;
 };

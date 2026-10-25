@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { getAlarms, setActiveAlarm, getActiveAlarm } from './storage';
+import { getAlarms, setActiveAlarm, getActiveAlarm, updateAlarm } from './storage';
 import {
   startSilentKeepAlive,
   stopSilentKeepAlive,
@@ -50,9 +50,13 @@ export const startBackgroundAlarmMonitor = async (): Promise<void> => {
           alarmName: due.name,
           alarmTime: due.time,
           customSoundUri: due.customSoundUri,
-          nfcFailedAttempts: 0,
           startedAt: new Date().toISOString(),
         });
+
+        // One-time alarms (no repeat days) fire once — disable so they don't re-fire daily
+        if (due.repeatDays.length === 0) {
+          await updateAlarm({ ...due, enabled: false });
+        }
 
         // Start alarm sound from background so it plays even on lock screen
         await startAlarmSound(due.customSoundUri);

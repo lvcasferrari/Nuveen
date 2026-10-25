@@ -15,10 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { readNFCTag, isNFCAvailable, validateNFCTag } from '../utils/nfc';
 import {
   getSettings,
-  addWakeLog,
   setActiveAlarm,
   clearActiveAlarm,
-  incrementNfcFailedAttempts,
 } from '../utils/storage';
 import * as Haptics from 'expo-haptics';
 import { cancelAndDismissAlarmNotifications } from '../utils/notifications';
@@ -43,7 +41,6 @@ export default function AlarmRingingScreen() {
       alarmName,
       alarmTime: time,
       customSoundUri: customSoundUri || undefined,
-      nfcFailedAttempts: 0,
       startedAt: new Date().toISOString(),
     }).catch(console.error);
 
@@ -99,24 +96,21 @@ export default function AlarmRingingScreen() {
       if (tagId) {
         const settings = await getSettings();
         const isValid = settings.nfcTags.length === 0 ||
-          settings.nfcTags.some(t => validateNFCTag(tagId, t.tagId, 'strict').valid);
+          settings.nfcTags.some(t => validateNFCTag(tagId, t.tagId));
 
         if (isValid) {
           await handleSuccessfulDismiss();
         } else {
           setNfcStatusMessage('Wrong tag. Please scan your configured Nuveen tag.');
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          await incrementNfcFailedAttempts();
           setScreenState('ringing');
         }
       } else {
         setNfcStatusMessage('Could not read NFC tag. Please try again.');
-        await incrementNfcFailedAttempts();
         setScreenState('ringing');
       }
     } catch (error: any) {
       setNfcStatusMessage(error.message || 'Failed to scan NFC tag. Please try again.');
-      await incrementNfcFailedAttempts();
       setScreenState('ringing');
     }
   };
@@ -129,14 +123,8 @@ export default function AlarmRingingScreen() {
     }
     await stopAlarmSound();
     await clearActiveAlarm();
-    // Cancel all burst follow-ups and dismiss from notification tray
+    // Cancel all pending notifications and dismiss from notification tray
     await cancelAndDismissAlarmNotifications(alarmId).catch(() => {});
-    await addWakeLog({
-      id: Date.now().toString(),
-      date: new Date().toISOString(),
-      alarmId,
-      wakeTime: new Date().toTimeString().split(' ')[0],
-    });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setScreenState('success');
     setTimeout(() => router.replace('/home'), 5000);

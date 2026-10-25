@@ -69,20 +69,15 @@ export default function SettingsScreen() {
         return;
       }
       const defaultName = `Tag ${settings.nfcTags.length + 1}`;
-      Alert.prompt(
-        'Name this tag',
-        'Give this NFC tag a name',
-        (name) => {
-          const newTag: NfcTag = {
-            id: Date.now().toString(),
-            name: name?.trim() || defaultName,
-            tagId,
-          };
-          persistSettings({ ...settings, nfcTags: [...settings.nfcTags, newTag] });
-        },
-        'plain-text',
-        defaultName
-      );
+      const newTag: NfcTag = {
+        id: Date.now().toString(),
+        name: defaultName,
+        tagId,
+      };
+      await persistSettings({ ...settings, nfcTags: [...settings.nfcTags, newTag] });
+      // Drop straight into inline rename — works on Android (Alert.prompt is iOS-only)
+      setEditingTagId(newTag.id);
+      setEditingName(defaultName);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to scan NFC tag');
     } finally {
