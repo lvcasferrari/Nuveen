@@ -1,4 +1,4 @@
-import { requireNativeModule } from 'expo-modules-core';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 
 export type AuthorizationState = 'notDetermined' | 'denied' | 'authorized';
 
@@ -31,6 +31,62 @@ interface NuveenAlarmNativeModule {
   scheduledIds(): string[];
 }
 
-const native = requireNativeModule<NuveenAlarmNativeModule>('NuveenAlarmModule');
+// Optional on purpose: requireNativeModule throws at import time when the
+// binary does not contain the module (e.g. a JS-only update over an older
+// build), which crashes the app on launch before anything can report why.
+const native = requireOptionalNativeModule<NuveenAlarmNativeModule>('NuveenAlarmModule');
 
-export default native;
+export const isAlarmKitLinked = (): boolean => native != null;
+
+const api = {
+  isSupported: (): boolean => {
+    try {
+      return native?.isSupported() ?? false;
+    } catch {
+      return false;
+    }
+  },
+  getAuthorizationState: (): AuthorizationState => {
+    try {
+      return native?.getAuthorizationState() ?? 'notDetermined';
+    } catch {
+      return 'notDetermined';
+    }
+  },
+  requestAuthorization: async (): Promise<AuthorizationState> =>
+    native ? native.requestAuthorization() : 'notDetermined',
+  schedule: async (input: NativeAlarmInput): Promise<string | null> =>
+    native ? native.schedule(input) : null,
+  cancel: async (id: string): Promise<void> => {
+    await native?.cancel(id);
+  },
+  cancelAll: async (): Promise<void> => {
+    await native?.cancelAll();
+  },
+  markVerified: async (id: string): Promise<void> => {
+    await native?.markVerified(id);
+  },
+  pendingScanAlarmId: (): string | null => {
+    try {
+      return native?.pendingScanAlarmId() ?? null;
+    } catch {
+      return null;
+    }
+  },
+  clearPendingScan: (): void => {
+    try {
+      native?.clearPendingScan();
+    } catch {
+      // nothing to clear
+    }
+  },
+  scheduledIds: (): string[] => {
+    try {
+      return native?.scheduledIds() ?? [];
+    } catch {
+      return [];
+    }
+  },
+};
+
+export default api;

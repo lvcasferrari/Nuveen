@@ -1,11 +1,18 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Alarm, getAlarms, saveAlarms, addAlarm as addAlarmStorage, updateAlarm as updateAlarmStorage, deleteAlarm as deleteAlarmStorage } from '../utils/storage';
-import nuveenAlarm from '../modules/nuveen-alarm';
+import nuveenAlarm, { isAlarmKitLinked } from '../modules/nuveen-alarm';
+import { scheduleAlarmNotification, cancelAlarmNotification } from '../utils/notifications';
 
 // AlarmKit takes the alarm time directly; no notification scheduling, no
 // background timer, no keep-alive. It rings on the lock screen, in silent
 // mode and in Focus, whether or not the app is running.
+// If the native module is missing from this binary we fall back to
+// notifications so alarms still fire, rather than silently never ringing.
 const syncAlarm = async (alarm: Alarm) => {
+  if (!isAlarmKitLinked()) {
+    await scheduleAlarmNotification(alarm);
+    return;
+  }
   await nuveenAlarm.cancel(alarm.id);
   if (!alarm.enabled) return;
   const [hour, minute] = alarm.time.split(':').map(Number);
@@ -16,6 +23,14 @@ const syncAlarm = async (alarm: Alarm) => {
     minute,
     weekdays: alarm.repeatDays,
   });
+};
+
+const removeAlarm = async (id: string) => {
+  if (!isAlarmKitLinked()) {
+    await cancelAlarmNotification(id);
+    return;
+  }
+  await nuveenAlarm.cancel(id);
 };
 
 interface AlarmContextType {
@@ -72,7 +87,7 @@ export const AlarmProvider = ({ children }: { children: ReactNode }) => {
   const deleteAlarm = async (id: string) => {
     try {
       await deleteAlarmStorage(id);
-      await nuveenAlarm.cancel(id);
+      await removeAlarm(id);
       await refreshAlarms();
     } catch (error) {
       console.error('Error deleting alarm:', error);
