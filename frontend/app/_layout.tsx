@@ -26,25 +26,29 @@ export default function RootLayout() {
     setupNotificationChannel().catch(console.error);
     setupNotificationCategories().catch(console.error);
 
-    // The lock-screen "Scan NFC" button opens the app with this set.
-    const pendingAlarmId = nuveenAlarm.pendingScanAlarmId();
-    if (pendingAlarmId) {
-      nuveenAlarm.clearPendingScan();
-      getAlarms()
-        .then((all) => {
-          const match = all.find((a) => a.id === pendingAlarmId);
-          router.replace({
-            pathname: '/alarm-ringing',
-            params: {
-              alarmId: pendingAlarmId,
-              alarmName: match?.name ?? 'Alarm',
-              time: match?.time ?? '',
-              customSoundUri: match?.customSoundUri ?? '',
-            },
-          });
-        })
-        .catch(console.error);
-    }
+    // The lock-screen "Scan NFC" button opens the app with this set. Checked
+    // off the mount path: a native call that throws during startup aborts the
+    // whole process before anything can report why.
+    const checkPendingScan = async () => {
+      try {
+        const pendingAlarmId = nuveenAlarm.pendingScanAlarmId();
+        if (!pendingAlarmId) return;
+        nuveenAlarm.clearPendingScan();
+        const all = await getAlarms();
+        const match = all.find((a) => a.id === pendingAlarmId);
+        router.replace({
+          pathname: '/alarm-ringing',
+          params: {
+            alarmId: pendingAlarmId,
+            alarmName: match?.name ?? 'Alarm',
+            time: match?.time ?? '',
+            customSoundUri: match?.customSoundUri ?? '',
+          },
+        });
+      } catch (error) {
+        console.error('Pending scan check failed:', error);
+      }
+    };
 
     const navigateToAlarm = async (data: Record<string, unknown>) => {
       if (!data?.alarmId) return;
@@ -121,7 +125,9 @@ export default function RootLayout() {
         // getPresentedNotificationsAsync may not be available on all platforms
       }
     };
-    const restoreTimer = setTimeout(() => checkActiveAlarm(), 200);
+    const restoreTimer = setTimeout(() => {
+      checkPendingScan().then(() => checkActiveAlarm());
+    }, 200);
 
     // AppState listener: when user brings app to foreground, check if there's an
     // active alarm that needs the sound restarted (e.g., user tapped notification

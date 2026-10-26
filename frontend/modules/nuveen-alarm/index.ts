@@ -26,7 +26,8 @@ interface NuveenAlarmNativeModule {
    */
   markVerified(id: string): Promise<void>;
   /** Alarm id the user tapped "Scan NFC" for on the lock screen, if any. */
-  pendingScanAlarmId(): string | null;
+  /** Empty string when nothing is pending. */
+  pendingScanAlarmId(): string;
   clearPendingScan(): void;
   scheduledIds(): string[];
 }
@@ -68,7 +69,7 @@ const api = {
   },
   pendingScanAlarmId: (): string | null => {
     try {
-      return native?.pendingScanAlarmId() ?? null;
+      return native?.pendingScanAlarmId() || null;
     } catch {
       return null;
     }

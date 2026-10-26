@@ -69,8 +69,10 @@ public class NuveenAlarmModule: Module {
     }
 
     // Which alarm (if any) the user tapped "Scan NFC" for.
-    Function("pendingScanAlarmId") { () -> String? in
-      NuveenPendingScan.alarmId
+    // Returns "" rather than nil: optional returns across the bridge are a
+    // sharp edge, and an uncaught exception here aborts the whole app.
+    Function("pendingScanAlarmId") { () -> String in
+      NuveenPendingScan.alarmId ?? ""
     }
 
     Function("clearPendingScan") {
