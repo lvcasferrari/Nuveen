@@ -11,6 +11,11 @@ Pod::Spec.new do |s|
 
   s.dependency 'ExpoModulesCore'
 
+  # Link explicitly and weakly: a hard-link failure shows up as a launch
+  # crash with no diagnostics.
+  s.weak_frameworks = 'AlarmKit', 'AppIntents', 'ActivityKit'
+  s.frameworks = 'SwiftUI', 'CryptoKit'
+
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
     'SWIFT_COMPILATION_MODE' => 'wholemodule'

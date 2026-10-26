@@ -13,6 +13,10 @@ const syncAlarm = async (alarm: Alarm) => {
     await scheduleAlarmNotification(alarm);
     return;
   }
+  // Ask in context, the first time an alarm is actually scheduled.
+  if (nuveenAlarm.getAuthorizationState() === 'notDetermined') {
+    await nuveenAlarm.requestAuthorization();
+  }
   await nuveenAlarm.cancel(alarm.id);
   if (!alarm.enabled) return;
   const [hour, minute] = alarm.time.split(':').map(Number);

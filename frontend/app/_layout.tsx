@@ -26,9 +26,6 @@ export default function RootLayout() {
     setupNotificationChannel().catch(console.error);
     setupNotificationCategories().catch(console.error);
 
-    // AlarmKit needs its own authorization, or alarms are never scheduled.
-    nuveenAlarm.requestAuthorization().catch(console.error);
-
     // The lock-screen "Scan NFC" button opens the app with this set.
     const pendingAlarmId = nuveenAlarm.pendingScanAlarmId();
     if (pendingAlarmId) {
