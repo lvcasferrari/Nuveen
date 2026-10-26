@@ -11,17 +11,13 @@
       "supportsTablet": true,
       "infoPlist": {
         "NFCReaderUsageDescription": "Nuveen needs NFC access to scan your tag and stop alarms.",
+        "NSAlarmKitUsageDescription": "Nuveen needs alarm access so your alarm can ring on the lock screen, in silent mode and in Focus.",
         "ITSAppUsesNonExemptEncryption": false,
         "UIFileSharingEnabled": true,
         "LSSupportsOpeningDocumentsInPlace": true,
         "UIBackgroundModes": [
           "audio",
-          "processing",
-          "fetch",
           "remote-notification"
-        ],
-        "BGTaskSchedulerPermittedIdentifiers": [
-          "com.nuveen.alarm.background"
         ]
       },
       "bundleIdentifier": "com.nuveen.alarm",
@@ -65,7 +61,15 @@
           "sounds": ["./assets/sounds/alarm.mp3"]
         }
       ],
-      "expo-document-picker"
+      "expo-document-picker",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "26.0"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

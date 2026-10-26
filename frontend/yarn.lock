@@ -1278,6 +1278,11 @@
   resolved "https://registry.yarnpkg.com/@expo/schema-utils/-/schema-utils-0.1.9.tgz#48fa4971f760de7a6427a56f02aaf89889929316"
   integrity sha512-t9bYwG4Z0yCVzHYJoDMci1OFq2FkBkhStlfUGSkspKYTwB/84+x6sY+CXCgdhkQNQtvWaugW5KUs9YZfAXq9Sg==
 
+"@expo/schema-utils@^58.0.2":
+  version "58.0.2"
+  resolved "https://registry.yarnpkg.com/@expo/schema-utils/-/schema-utils-58.0.2.tgz#a061fbf4faf2c9f3e4eb49bf775ee43faf596978"
+  integrity sha512-w28y8SG+5ZTdDdmH2ZnCQk9wHVwGzI9NqX5V4urJUFEnxbm7I129fJRkb8RIAJmMA1WKU5h3ONmranV473uaXQ==
+
 "@expo/sdk-runtime-versions@^1.0.0":
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/@expo/sdk-runtime-versions/-/sdk-runtime-versions-1.0.1.tgz#292403988e491b444f2a8c7c0921600bcc2ae3da"
@@ -4135,6 +4140,15 @@ expo-blur@^15.0.7:
   version "15.0.8"
   resolved "https://registry.yarnpkg.com/expo-blur/-/expo-blur-15.0.8.tgz#846cea275a6644639c5c338987b4cca54cf93eca"
   integrity sha512-rWyE1NBRZEu9WD+X+5l7gyPRszw7n12cW3IRNAb5i6KFzaBp8cxqT5oeaphJapqURvcqhkOZn2k5EtBSbsuU7w==
+
+expo-build-properties@^58.0.11:
+  version "58.0.11"
+  resolved "https://registry.yarnpkg.com/expo-build-properties/-/expo-build-properties-58.0.11.tgz#8a0ee43b7732fe4c70f610def1ae38e110b50812"
+  integrity sha512-8vjp+RSD7VW/VeEpG9l1YON4ZqOqQXPmtMYFqmh41I7cBGwELRYybHFrh2P3uBgzWlRBuQrRLO5UAtAYfT7HLg==
+  dependencies:
+    "@expo/schema-utils" "^58.0.2"
+    resolve-from "^5.0.0"
+    semver "^7.7.4"
 
 expo-constants@^18.0.10, expo-constants@~18.0.13, expo-constants@~18.0.14:
   version "18.0.14"
@@ -7594,7 +7608,7 @@ semver@^6.3.0, semver@^6.3.1:
   resolved "https://registry.yarnpkg.com/semver/-/semver-6.3.1.tgz#556d2ef8689146e46dcea4bfdd095f3434dffcb4"
   integrity sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==
 
-semver@^7.1.3, semver@^7.3.5, semver@^7.5.3, semver@^7.5.4, semver@^7.6.0, semver@^7.7.1, semver@^7.7.2, semver@^7.7.3:
+semver@^7.1.3, semver@^7.3.5, semver@^7.5.3, semver@^7.5.4, semver@^7.6.0, semver@^7.7.1, semver@^7.7.2, semver@^7.7.3, semver@^7.7.4:
   version "7.8.5"
   resolved "https://registry.yarnpkg.com/semver/-/semver-7.8.5.tgz#39b646037dd50c14fb451e7e4cac58ed8b863f69"
   integrity sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==

@@ -1,7 +1,22 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Alarm, getAlarms, saveAlarms, addAlarm as addAlarmStorage, updateAlarm as updateAlarmStorage, deleteAlarm as deleteAlarmStorage } from '../utils/storage';
-import { scheduleAlarmNotification, cancelAlarmNotification } from '../utils/notifications';
-import { startBackgroundAlarmMonitor, stopBackgroundAlarmMonitor } from '../utils/backgroundAlarm';
+import nuveenAlarm from '../modules/nuveen-alarm';
+
+// AlarmKit takes the alarm time directly; no notification scheduling, no
+// background timer, no keep-alive. It rings on the lock screen, in silent
+// mode and in Focus, whether or not the app is running.
+const syncAlarm = async (alarm: Alarm) => {
+  await nuveenAlarm.cancel(alarm.id);
+  if (!alarm.enabled) return;
+  const [hour, minute] = alarm.time.split(':').map(Number);
+  await nuveenAlarm.schedule({
+    id: alarm.id,
+    title: alarm.name || 'Nuveen Alarm',
+    hour,
+    minute,
+    weekdays: alarm.repeatDays,
+  });
+};
 
 interface AlarmContextType {
   alarms: Alarm[];
@@ -23,12 +38,6 @@ export const AlarmProvider = ({ children }: { children: ReactNode }) => {
     try {
       const loadedAlarms = await getAlarms();
       setAlarms(loadedAlarms);
-      // Keep background monitor in sync
-      if (loadedAlarms.some(a => a.enabled)) {
-        startBackgroundAlarmMonitor();
-      } else {
-        stopBackgroundAlarmMonitor();
-      }
     } catch (error) {
       console.error('Error refreshing alarms:', error);
     } finally {
@@ -43,7 +52,7 @@ export const AlarmProvider = ({ children }: { children: ReactNode }) => {
   const addAlarm = async (alarm: Alarm) => {
     try {
       await addAlarmStorage(alarm);
-      await scheduleAlarmNotification(alarm);
+      await syncAlarm(alarm);
       await refreshAlarms();
     } catch (error) {
       console.error('Error adding alarm:', error);
@@ -53,7 +62,7 @@ export const AlarmProvider = ({ children }: { children: ReactNode }) => {
   const updateAlarm = async (alarm: Alarm) => {
     try {
       await updateAlarmStorage(alarm);
-      await scheduleAlarmNotification(alarm);
+      await syncAlarm(alarm);
       await refreshAlarms();
     } catch (error) {
       console.error('Error updating alarm:', error);
@@ -63,7 +72,7 @@ export const AlarmProvider = ({ children }: { children: ReactNode }) => {
   const deleteAlarm = async (id: string) => {
     try {
       await deleteAlarmStorage(id);
-      await cancelAlarmNotification(id);
+      await nuveenAlarm.cancel(id);
       await refreshAlarms();
     } catch (error) {
       console.error('Error deleting alarm:', error);

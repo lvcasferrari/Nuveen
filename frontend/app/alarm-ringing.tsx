@@ -21,6 +21,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { cancelAndDismissAlarmNotifications } from '../utils/notifications';
 import { startAlarmSound, stopAlarmSound, isAlarmRinging, configureAudioSession } from '../utils/alarmAudio';
+import nuveenAlarm from '../modules/nuveen-alarm';
 
 type ScreenState = 'ringing' | 'scanning' | 'success';
 
@@ -122,6 +123,8 @@ export default function AlarmRingingScreen() {
       vibrationRef.current = null;
     }
     await stopAlarmSound();
+    // Tells AlarmKit the tag was scanned, so the alarm does not come back.
+    await nuveenAlarm.markVerified(alarmId).catch(() => {});
     await clearActiveAlarm();
     // Cancel all pending notifications and dismiss from notification tray
     await cancelAndDismissAlarmNotifications(alarmId).catch(() => {});

@@ -11,6 +11,7 @@ import {
 } from '../utils/notifications';
 import { getActiveAlarm, setActiveAlarm, getAlarms, updateAlarm } from '../utils/storage';
 import { startAlarmSound, configureAudioSession, isAlarmRinging } from '../utils/alarmAudio';
+import nuveenAlarm from '../modules/nuveen-alarm';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
@@ -24,6 +25,29 @@ export default function RootLayout() {
     requestNotificationPermissions().catch(console.error);
     setupNotificationChannel().catch(console.error);
     setupNotificationCategories().catch(console.error);
+
+    // AlarmKit needs its own authorization, or alarms are never scheduled.
+    nuveenAlarm.requestAuthorization().catch(console.error);
+
+    // The lock-screen "Scan NFC" button opens the app with this set.
+    const pendingAlarmId = nuveenAlarm.pendingScanAlarmId();
+    if (pendingAlarmId) {
+      nuveenAlarm.clearPendingScan();
+      getAlarms()
+        .then((all) => {
+          const match = all.find((a) => a.id === pendingAlarmId);
+          router.replace({
+            pathname: '/alarm-ringing',
+            params: {
+              alarmId: pendingAlarmId,
+              alarmName: match?.name ?? 'Alarm',
+              time: match?.time ?? '',
+              customSoundUri: match?.customSoundUri ?? '',
+            },
+          });
+        })
+        .catch(console.error);
+    }
 
     const navigateToAlarm = async (data: Record<string, unknown>) => {
       if (!data?.alarmId) return;
