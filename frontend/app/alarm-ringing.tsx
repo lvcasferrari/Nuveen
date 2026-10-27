@@ -17,6 +17,7 @@ import {
   getSettings,
   setActiveAlarm,
   clearActiveAlarm,
+  clampVolume,
 } from '../utils/storage';
 import * as Haptics from 'expo-haptics';
 import { cancelAndDismissAlarmNotifications } from '../utils/notifications';
@@ -31,6 +32,7 @@ export default function AlarmRingingScreen() {
   const alarmName = (params.alarmName as string) || 'Alarm';
   const time = params.time as string;
   const customSoundUri = params.customSoundUri as string | undefined;
+  const volume = clampVolume(params.volume);
 
   const [screenState, setScreenState] = useState<ScreenState>('ringing');
   const [nfcStatusMessage, setNfcStatusMessage] = useState<string | null>(null);
@@ -42,6 +44,7 @@ export default function AlarmRingingScreen() {
       alarmName,
       alarmTime: time,
       customSoundUri: customSoundUri || undefined,
+      volume,
       startedAt: new Date().toISOString(),
     }).catch(console.error);
 
@@ -77,7 +80,7 @@ export default function AlarmRingingScreen() {
       await configureAudioSession();
       // If background monitor already started the sound, don't restart it
       if (isAlarmRinging()) return;
-      await startAlarmSound(customSoundUri || undefined);
+      await startAlarmSound(customSoundUri || undefined, volume);
     } catch (error) {
       console.error('Error setting up alarm sound:', error);
     }

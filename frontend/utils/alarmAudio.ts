@@ -1,10 +1,14 @@
 import { Audio } from 'expo-av';
 import VolumeManager from 'react-native-volume-manager';
+import { clampVolume } from './storage';
 
 let _alarmSound: Audio.Sound | null = null;
 let _silentSound: Audio.Sound | null = null;
 let _isRinging = false;
 let _currentCustomSoundUri: string | undefined;
+let _currentVolume = 1;
+// Hardware volume steps are coarse; treat anything within this as "at target"
+const VOLUME_TOLERANCE = 0.04;
 let _volumeSubscription: ReturnType<typeof VolumeManager.addVolumeListener> | null = null;
 let _soundWatchdog: ReturnType<typeof setInterval> | null = null;
 
@@ -71,16 +75,17 @@ const _loadAndPlayAlarm = async (customSoundUri?: string): Promise<void> => {
   }
 };
 
-// Volume guard: when user presses volume down, immediately reset to max and restart sound
+// Volume guard: lock system volume to the alarm's chosen level; any change (up or down) is reverted
 const _startVolumeGuard = async (): Promise<void> => {
   try {
-    await VolumeManager.setVolume(1.0, { showUI: false });
+    await VolumeManager.setVolume(_currentVolume, { showUI: false });
 
     _volumeSubscription = VolumeManager.addVolumeListener(async ({ volume }) => {
       if (!_isRinging) return;
-      if (volume < 1.0) {
-        await VolumeManager.setVolume(1.0, { showUI: false });
-        await _loadAndPlayAlarm(_currentCustomSoundUri);
+      if (Math.abs(volume - _currentVolume) > VOLUME_TOLERANCE) {
+        const turnedDown = volume < _currentVolume;
+        await VolumeManager.setVolume(_currentVolume, { showUI: false });
+        if (turnedDown) await _loadAndPlayAlarm(_currentCustomSoundUri);
       }
     });
   } catch (err) {
@@ -105,7 +110,7 @@ const _startSoundWatchdog = (): void => {
       if (!status.isLoaded || !status.isPlaying) {
         // Sound was interrupted by OS or another audio event — restart it
         await _loadAndPlayAlarm(_currentCustomSoundUri);
-        await VolumeManager.setVolume(1.0, { showUI: false }).catch(() => {});
+        await VolumeManager.setVolume(_currentVolume, { showUI: false }).catch(() => {});
       }
     } catch {
       // Sound object is dead — reload
@@ -121,10 +126,11 @@ const _stopSoundWatchdog = (): void => {
   }
 };
 
-export const startAlarmSound = async (customSoundUri?: string): Promise<void> => {
+export const startAlarmSound = async (customSoundUri?: string, volume?: number): Promise<void> => {
   if (_isRinging) return;
   _isRinging = true;
   _currentCustomSoundUri = customSoundUri;
+  _currentVolume = clampVolume(volume);
 
   // Stop silent keep-alive — alarm sound keeps the session alive
   await stopSilentKeepAlive();

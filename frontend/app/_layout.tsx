@@ -9,7 +9,7 @@ import {
   setupNotificationCategories,
   cancelAndDismissAlarmNotifications,
 } from '../utils/notifications';
-import { getActiveAlarm, setActiveAlarm, getAlarms, updateAlarm } from '../utils/storage';
+import { getActiveAlarm, setActiveAlarm, getAlarms, updateAlarm, clampVolume } from '../utils/storage';
 import { startAlarmSound, configureAudioSession, isAlarmRinging } from '../utils/alarmAudio';
 import { openPendingScan } from '../utils/pendingScan';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -43,6 +43,7 @@ export default function RootLayout() {
 
       const alarmId = data.alarmId as string;
       const uri = (data.customSoundUri as string) || undefined;
+      const volume = clampVolume(data.volume);
 
       // Store active alarm so cold-start restore works
       await setActiveAlarm({
@@ -50,6 +51,7 @@ export default function RootLayout() {
         alarmName: (data.alarmName as string) ?? 'Alarm',
         alarmTime: (data.alarmTime as string) ?? '',
         customSoundUri: uri,
+        volume,
         startedAt: new Date().toISOString(),
       }).catch(() => {});
 
@@ -67,7 +69,7 @@ export default function RootLayout() {
 
       // Fire alarm sound immediately — don't wait for UI navigation
       configureAudioSession()
-        .then(() => startAlarmSound(uri))
+        .then(() => startAlarmSound(uri, volume))
         .catch(() => {});
 
       router.replace({
@@ -77,6 +79,7 @@ export default function RootLayout() {
           alarmName: (data.alarmName as string) ?? 'Alarm',
           time: (data.alarmTime as string) ?? '',
           customSoundUri: (data.customSoundUri as string) ?? '',
+          volume: String(volume),
         },
       });
     };
@@ -87,7 +90,7 @@ export default function RootLayout() {
       if (active) {
         // Restart sound on cold-start restore — the original sound died with the process
         configureAudioSession()
-          .then(() => startAlarmSound(active.customSoundUri))
+          .then(() => startAlarmSound(active.customSoundUri, active.volume))
           .catch(() => {});
 
         router.replace({
@@ -97,6 +100,7 @@ export default function RootLayout() {
             alarmName: active.alarmName,
             time: active.alarmTime,
             customSoundUri: active.customSoundUri ?? '',
+            volume: String(clampVolume(active.volume)),
           },
         });
         return;
@@ -133,7 +137,7 @@ export default function RootLayout() {
         if (active && !isAlarmRinging()) {
           // There's an active alarm but sound isn't playing — restart it
           configureAudioSession()
-            .then(() => startAlarmSound(active.customSoundUri))
+            .then(() => startAlarmSound(active.customSoundUri, active.volume))
             .catch(() => {});
 
           router.replace({
@@ -143,6 +147,7 @@ export default function RootLayout() {
               alarmName: active.alarmName,
               time: active.alarmTime,
               customSoundUri: active.customSoundUri ?? '',
+            volume: String(clampVolume(active.volume)),
             },
           });
         }

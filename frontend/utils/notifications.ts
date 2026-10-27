@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { Alarm } from './storage';
+import { Alarm, clampVolume } from './storage';
 
 const ALARM_CHANNEL_ID = 'nuveen_alarms';
 
@@ -89,6 +89,7 @@ const buildAlarmContent = (alarm: Alarm): Notifications.NotificationContentInput
     alarmName: alarm.name,
     alarmTime: alarm.time,
     customSoundUri: alarm.customSoundUri ?? null,
+    volume: clampVolume(alarm.volume),
   },
   ...(Platform.OS === 'android' && {
     channelId: ALARM_CHANNEL_ID,

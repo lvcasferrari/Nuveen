@@ -37,6 +37,7 @@ export default function EditAlarmScreen() {
       repeatDays: data.repeatDays,
       customSoundUri: data.customSoundUri,
       soundName: data.soundName,
+      volume: data.volume,
     });
   };
 
@@ -49,6 +50,7 @@ export default function EditAlarmScreen() {
       initialRepeatDays={alarm.repeatDays}
       initialCustomSoundUri={alarm.customSoundUri}
       initialSoundName={alarm.soundName}
+      initialVolume={alarm.volume}
       onSubmit={handleSubmit}
     />
   );

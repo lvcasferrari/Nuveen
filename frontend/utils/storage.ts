@@ -10,6 +10,7 @@ export interface Alarm {
   gradientTheme: 'dawn' | 'amber' | 'warm';
   customSoundUri?: string; // URI do arquivo de áudio personalizado
   soundName?: string; // Nome do arquivo de áudio
+  volume?: number; // 0.1–1.0 system volume locked while ringing; undefined = 1.0
 }
 
 export interface NfcTag {
@@ -30,8 +31,18 @@ export interface ActiveAlarm {
   alarmName: string;
   alarmTime: string;       // HH:mm
   customSoundUri?: string;
+  volume?: number;
   startedAt: string;       // ISO timestamp
 }
+
+export const MIN_ALARM_VOLUME = 0.1;
+
+// Untrusted (storage, notification data, route params): clamp to [MIN, 1], default 1.
+export const clampVolume = (value: unknown): number => {
+  const n = typeof value === 'string' ? Number(value) : value;
+  if (typeof n !== 'number' || !Number.isFinite(n)) return 1;
+  return Math.round(Math.min(1, Math.max(MIN_ALARM_VOLUME, n)) * 10) / 10;
+};
 
 const STORAGE_KEYS = {
   ALARMS: '@nuveen:alarms',
