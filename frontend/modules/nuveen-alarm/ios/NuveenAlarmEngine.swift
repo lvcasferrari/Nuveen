@@ -90,10 +90,12 @@ enum NuveenAlarmEngine {
       textColor: .black,
       systemImageName: "wave.3.right"
     )
-    // No stopButton: it is deprecated in iOS 26.1 and the system supplies its
-    // own stop control. We re-arm on stop instead of trying to remove it.
+    // Required by the iOS 26.0 SDK (EAS); deprecated in 26.1. Stopping re-arms
+    // the alarm via NuveenStopIntent unless the tag was scanned.
+    let stop = AlarmButton(text: "Stop", textColor: .white, systemImageName: "stop.circle")
     let alert = AlarmPresentation.Alert(
       title: LocalizedStringResource(stringLiteral: title),
+      stopButton: stop,
       secondaryButton: scan,
       secondaryButtonBehavior: .custom
     )

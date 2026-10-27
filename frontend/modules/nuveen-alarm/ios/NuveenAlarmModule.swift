@@ -53,7 +53,7 @@ public class NuveenAlarmModule: Module {
 
     AsyncFunction("cancelAll") { () in
       guard #available(iOS 26.0, *) else { return }
-      for alarm in AlarmManager.shared.alarms {
+      for alarm in (try? AlarmManager.shared.alarms) ?? [] {
         try? AlarmManager.shared.cancel(id: alarm.id)
       }
     }
@@ -81,7 +81,7 @@ public class NuveenAlarmModule: Module {
 
     Function("scheduledIds") { () -> [String] in
       guard #available(iOS 26.0, *) else { return [] }
-      return AlarmManager.shared.alarms.map { $0.id.uuidString }
+      return ((try? AlarmManager.shared.alarms) ?? []).map { $0.id.uuidString }
     }
   }
 
