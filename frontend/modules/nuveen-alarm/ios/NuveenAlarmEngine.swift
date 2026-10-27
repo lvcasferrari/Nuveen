@@ -1,5 +1,6 @@
 import Foundation
 import AlarmKit
+import ActivityKit
 import AppIntents
 import SwiftUI
 import CryptoKit
