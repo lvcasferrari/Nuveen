@@ -11,7 +11,7 @@ import {
 } from '../utils/notifications';
 import { getActiveAlarm, setActiveAlarm, getAlarms, updateAlarm } from '../utils/storage';
 import { startAlarmSound, configureAudioSession, isAlarmRinging } from '../utils/alarmAudio';
-import nuveenAlarm from '../modules/nuveen-alarm';
+import { openPendingScan } from '../utils/pendingScan';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
@@ -29,24 +29,12 @@ export default function RootLayout() {
     // The lock-screen "Scan NFC" button opens the app with this set. Checked
     // off the mount path: a native call that throws during startup aborts the
     // whole process before anything can report why.
-    const checkPendingScan = async () => {
+    const checkPendingScan = async (): Promise<boolean> => {
       try {
-        const pendingAlarmId = nuveenAlarm.pendingScanAlarmId();
-        if (!pendingAlarmId) return;
-        nuveenAlarm.clearPendingScan();
-        const all = await getAlarms();
-        const match = all.find((a) => a.id === pendingAlarmId);
-        router.replace({
-          pathname: '/alarm-ringing',
-          params: {
-            alarmId: pendingAlarmId,
-            alarmName: match?.name ?? 'Alarm',
-            time: match?.time ?? '',
-            customSoundUri: match?.customSoundUri ?? '',
-          },
-        });
+        return await openPendingScan(router.replace);
       } catch (error) {
         console.error('Pending scan check failed:', error);
+        return false;
       }
     };
 
@@ -126,7 +114,9 @@ export default function RootLayout() {
       }
     };
     const restoreTimer = setTimeout(() => {
-      checkPendingScan().then(() => checkActiveAlarm());
+      checkPendingScan().then((opened) => {
+        if (!opened) checkActiveAlarm();
+      });
     }, 200);
 
     // AppState listener: when user brings app to foreground, check if there's an
@@ -134,7 +124,11 @@ export default function RootLayout() {
     // or swiped up from lock screen while alarm was ringing via notifications only)
     const handleAppStateChange = async (nextAppState: AppStateStatus) => {
       if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-        // App just came to foreground
+        // App just came to foreground, possibly from the lock-screen "Scan NFC" button
+        if (await checkPendingScan()) {
+          appState.current = nextAppState;
+          return;
+        }
         const active = await getActiveAlarm();
         if (active && !isAlarmRinging()) {
           // There's an active alarm but sound isn't playing — restart it

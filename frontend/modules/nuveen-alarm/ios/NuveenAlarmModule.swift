@@ -64,7 +64,9 @@ public class NuveenAlarmModule: Module {
       NuveenAlarmStore.setVerified(id)
       try? AlarmManager.shared.stop(id: NuveenAlarmID.uuid(for: id))
       NuveenAlarmEngine.cancelChain(alarmId: id)
-      NuveenAlarmStore.clear(id)
+      // Keep the verified flag: stop() may run NuveenStopIntent after this
+      // returns, and it must see the scan or it re-arms. handleStop and the
+      // next schedule() clear it.
       NuveenPendingScan.alarmId = nil
     }
 

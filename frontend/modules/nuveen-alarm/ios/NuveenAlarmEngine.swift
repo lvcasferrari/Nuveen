@@ -23,12 +23,17 @@ enum NuveenAlarmStore {
 
   private static var defaults: UserDefaults { .standard }
 
+  /// A scan only counts for the ringing it answered; a stale flag must not
+  /// let tomorrow's repeat be stopped without scanning.
+  static let verifiedWindow: TimeInterval = 5 * 60
+
   static func isVerified(_ id: String) -> Bool {
-    defaults.bool(forKey: "nuveen.verified.\(id)")
+    let at = defaults.double(forKey: "nuveen.verified.\(id)")
+    return at > 0 && Date().timeIntervalSince1970 - at < verifiedWindow
   }
 
   static func setVerified(_ id: String) {
-    defaults.set(true, forKey: "nuveen.verified.\(id)")
+    defaults.set(Date().timeIntervalSince1970, forKey: "nuveen.verified.\(id)")
   }
 
   static func clear(_ id: String) {
@@ -83,6 +88,9 @@ enum NuveenAlarmID {
 enum NuveenAlarmEngine {
   /// Nuveen amber (#F4C07A)
   static let tint = Color(red: 0.957, green: 0.753, blue: 0.478)
+  /// Same file the app plays (bundled by the expo-notifications plugin), so the
+  /// alarm sounds the same whether or not the app is open.
+  static let alarmSound = AlertConfiguration.AlertSound.named("alarm.mp3")
 
   static func attributes(title: String, alarmId: String) -> AlarmAttributes<NuveenAlarmMetadata> {
     let scan = AlarmButton(
@@ -138,7 +146,7 @@ enum NuveenAlarmEngine {
       attributes: attributes(title: title, alarmId: alarmId),
       stopIntent: NuveenStopIntent(alarmId: alarmId),
       secondaryIntent: NuveenScanIntent(alarmId: alarmId),
-      sound: .default
+      sound: alarmSound
     )
 
     NuveenAlarmStore.clear(alarmId)
@@ -166,7 +174,7 @@ enum NuveenAlarmEngine {
       attributes: attributes(title: "Scan your tag to stop", alarmId: alarmId),
       stopIntent: NuveenStopIntent(alarmId: alarmId),
       secondaryIntent: NuveenScanIntent(alarmId: alarmId),
-      sound: .default
+      sound: alarmSound
     )
     try? await AlarmManager.shared.schedule(
       id: NuveenAlarmID.uuid(for: NuveenAlarmID.rearmKey(alarmId, attempt)),

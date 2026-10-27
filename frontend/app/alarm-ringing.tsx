@@ -61,6 +61,9 @@ export default function AlarmRingingScreen() {
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => true);
 
+    // Opened from the lock-screen "Scan NFC" button: the user already asked to scan.
+    if (params.autoScan === '1') handleScanNFC();
+
     return () => {
       Vibration.cancel();
       if (vibrationRef.current) clearInterval(vibrationRef.current);
@@ -124,7 +127,7 @@ export default function AlarmRingingScreen() {
     }
     await stopAlarmSound();
     // Tells AlarmKit the tag was scanned, so the alarm does not come back.
-    await nuveenAlarm.markVerified(alarmId).catch(() => {});
+    await nuveenAlarm.markVerified(alarmId).catch((error) => console.error('markVerified failed:', error));
     await clearActiveAlarm();
     // Cancel all pending notifications and dismiss from notification tray
     await cancelAndDismissAlarmNotifications(alarmId).catch(() => {});
