@@ -152,3 +152,15 @@ export const stopAlarmSound = async (): Promise<void> => {
 };
 
 export const isAlarmRinging = (): boolean => _isRinging;
+
+// Fallback preview when notifications are off: same perceptual curve as the alarm_XX.caf
+// files (gain = level^1.66), played in-app for 4 s.
+export const previewInApp = async (volume: number): Promise<void> => {
+  await configureAudioSession();
+  const { sound } = await Audio.Sound.createAsync(require('../assets/sounds/alarm.mp3'), {
+    shouldPlay: true,
+    isLooping: true,
+    volume: Math.pow(clampVolume(volume), 1.661),
+  });
+  setTimeout(() => { sound.stopAsync().then(() => sound.unloadAsync()).catch(() => {}); }, 4000);
+};

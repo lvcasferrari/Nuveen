@@ -1,3 +1,5 @@
+jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
+
 import nuveenAlarm, { isAlarmKitLinked } from '../../modules/nuveen-alarm';
 import { scheduleAlarmNotification, cancelAlarmNotification } from '../notifications';
 import { syncAlarm } from '../alarmScheduler';
@@ -31,9 +33,14 @@ describe('syncAlarm', () => {
   it('schedules through AlarmKit when authorized', async () => {
     await syncAlarm(alarm);
     expect(native.schedule).toHaveBeenCalledWith({
-      id: 'a1', title: 'Wake', hour: 7, minute: 30, weekdays: [1, 2],
+      id: 'a1', title: 'Wake', hour: 7, minute: 30, weekdays: [1, 2], sound: 'alarm_100.caf',
     });
     expect(scheduleAlarmNotification).not.toHaveBeenCalled();
+  });
+
+  it('passes the sound file for the alarm volume, since AlarmKit has no volume control', async () => {
+    await syncAlarm({ ...alarm, volume: 0.4 });
+    expect(native.schedule).toHaveBeenCalledWith(expect.objectContaining({ sound: 'alarm_40.caf' }));
   });
 
   it('removes notifications left by older builds so the alarm does not ring twice', async () => {

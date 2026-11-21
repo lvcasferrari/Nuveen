@@ -81,7 +81,7 @@ export default function NFCSetupScreen() {
             <Text style={styles.title}>Set up your{"\n"}Nuveen Tag</Text>
             <Text style={styles.subtitle}>
               {tagScanned
-                ? 'Tag successfully registered!'
+                ? 'Your tag is registered'
                 : scanning
                 ? 'Hold your NFC tag near the back of your phone'
                 : 'Scan your NFC tag to link it with Nuveen'}

@@ -7,6 +7,8 @@ struct NuveenAlarmInput: Record {
   @Field var hour: Int = 7
   @Field var minute: Int = 0
   @Field var weekdays: [Int] = []
+  /// Bundled sound file for this alarm's volume level, e.g. "alarm_40.caf".
+  @Field var sound: String = "alarm.mp3"
 }
 
 public class NuveenAlarmModule: Module {
@@ -41,7 +43,8 @@ public class NuveenAlarmModule: Module {
         title: input.title,
         hour: input.hour,
         minute: input.minute,
-        weekdays: input.weekdays
+        weekdays: input.weekdays,
+        sound: input.sound
       )
     }
 

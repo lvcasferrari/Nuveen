@@ -1,6 +1,6 @@
 import nuveenAlarm, { isAlarmKitLinked } from '../modules/nuveen-alarm';
 import { scheduleAlarmNotification, cancelAlarmNotification } from './notifications';
-import type { Alarm } from './storage';
+import { alarmSoundFile, type Alarm } from './storage';
 
 const parseTime = (time: string): { hour: number; minute: number } => {
   const [hour, minute] = time.split(':').map(Number);
@@ -38,6 +38,7 @@ export const syncAlarm = async (alarm: Alarm): Promise<void> => {
     hour,
     minute,
     weekdays: alarm.repeatDays,
+    sound: alarmSoundFile(alarm.volume),
   });
 };
 

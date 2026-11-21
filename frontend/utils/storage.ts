@@ -44,6 +44,12 @@ export const clampVolume = (value: unknown): number => {
   return Math.round(Math.min(1, Math.max(MIN_ALARM_VOLUME, n)) * 10) / 10;
 };
 
+// Bundled per-level sounds (assets/sounds/alarm_10.caf ... alarm_100.caf). The level is
+// baked into the file because AlarmKit and notification sounds play at the iPhone's alert
+// volume, which apps cannot set.
+export const alarmSoundFile = (volume: unknown): string => `alarm_${Math.round(clampVolume(volume) * 100)}.caf`;
+export const previewSoundFile = (volume: unknown): string => `preview_${Math.round(clampVolume(volume) * 100)}.caf`;
+
 const STORAGE_KEYS = {
   ALARMS: '@nuveen:alarms',
   SETTINGS: '@nuveen:settings',

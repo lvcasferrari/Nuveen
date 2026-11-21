@@ -9,7 +9,7 @@ import {
   setupNotificationCategories,
   cancelAndDismissAlarmNotifications,
 } from '../utils/notifications';
-import { getActiveAlarm, setActiveAlarm, getAlarms, updateAlarm, clampVolume } from '../utils/storage';
+import { getActiveAlarm, setActiveAlarm, getAlarms, updateAlarm, clampVolume, isOnboardingComplete } from '../utils/storage';
 import { startAlarmSound, configureAudioSession, isAlarmRinging } from '../utils/alarmAudio';
 import { openPendingScan } from '../utils/pendingScan';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -22,7 +22,8 @@ export default function RootLayout() {
   const appState = useRef(AppState.currentState);
 
   useEffect(() => {
-    requestNotificationPermissions().catch(console.error);
+    // New users are asked during onboarding, with context; returning users here.
+    isOnboardingComplete().then(done => done && requestNotificationPermissions()).catch(console.error);
     setupNotificationChannel().catch(console.error);
     setupNotificationCategories().catch(console.error);
 
@@ -108,7 +109,8 @@ export default function RootLayout() {
       // Fallback: check if there's a delivered alarm notification (app killed while alarm fired)
       try {
         const presented = await Notifications.getPresentedNotificationsAsync();
-        const alarmNotif = presented.find(n => n.request.content.data?.alarmId);
+        // Only a recent one: an old alarm notification left in the tray is not ringing now.
+        const alarmNotif = presented.find(n => n.request.content.data?.alarmId && Date.now() - n.date < 10 * 60 * 1000);
         if (alarmNotif) {
           const data = alarmNotif.request.content.data as Record<string, unknown>;
           await navigateToAlarm(data);

@@ -20,6 +20,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { playMediumFeedback } from '../utils/feedback';
 import { useThemeColors } from '../contexts/GradientContext';
 import { clampVolume, MIN_ALARM_VOLUME } from '../utils/storage';
+import { previewAlarmVolume } from '../utils/notifications';
+import { previewInApp } from '../utils/alarmAudio';
 
 const VOLUME_STEP = 0.1;
 
@@ -74,6 +76,15 @@ export default function AlarmForm({
   const [soundName, setSoundName] = useState<string | undefined>(initialSoundName);
   const [volume, setVolume] = useState(() => clampVolume(initialVolume));
   const volumePercent = Math.round(volume * 100);
+
+  const handlePreview = async () => {
+    playMediumFeedback();
+    try {
+      if (!(await previewAlarmVolume(volume))) await previewInApp(volume);
+    } catch (error) {
+      console.error('Preview failed:', error);
+    }
+  };
 
   const changeVolume = (delta: number) => {
     playMediumFeedback();
@@ -270,7 +281,13 @@ export default function AlarmForm({
                 <Ionicons name="add" size={22} color={text} />
               </TouchableOpacity>
             </View>
-            <Text style={[styles.audioSubtext, { color: textFaded, marginTop: 8 }]}>Can't be changed while the alarm rings</Text>
+            <TouchableOpacity onPress={handlePreview} style={styles.previewButton} accessibilityRole="button" accessibilityLabel={`Preview alarm at ${volumePercent} percent`}>
+              <Ionicons name="play" size={18} color="#F4C07A" />
+              <Text style={[styles.previewText, { color: text }]}>Preview at {volumePercent}%</Text>
+            </TouchableOpacity>
+            <Text style={[styles.audioSubtext, { color: textFaded, marginTop: 8 }]}>
+              Plays through your ringer, the way the alarm will sound. Can't be changed while the alarm rings.
+            </Text>
           </View>
 
           <View style={styles.nfcInfo}>
@@ -376,6 +393,17 @@ const styles = StyleSheet.create({
   volumeButtonDisabled: { opacity: 0.35 },
   volumeValue: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   volumeText: { fontSize: 18, fontWeight: '600' },
+  previewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: '#F4C07A',
+    marginTop: 12,
+  },
+  previewText: { fontSize: 14, fontWeight: '600', marginLeft: 8 },
   audioText: { marginLeft: 12, flex: 1 },
   audioLabel: { fontSize: 16, fontWeight: '600', color: '#0C0C0C', marginBottom: 4 },
   audioSubtext: { fontSize: 14, color: '#0C0C0C', opacity: 0.6 },

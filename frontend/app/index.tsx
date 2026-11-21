@@ -1,15 +1,20 @@
 import React, { useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
-import { isOnboardingComplete } from '../utils/storage';
+import { getActiveAlarm, getAlarms, isOnboardingComplete } from '../utils/storage';
+import nuveenAlarm from '../modules/nuveen-alarm';
 
 export default function IndexScreen() {
   useEffect(() => {
-    const timer = setTimeout(async () => {
-      const done = await isOnboardingComplete();
-      router.replace(done ? '/home' : '/onboarding');
-    }, 500);
-    return () => clearTimeout(timer);
+    const route = async () => {
+      // A ringing alarm or a lock-screen "Scan NFC" tap is handled by the root layout, which
+      // opens the ringing screen. Redirecting home here would replace it.
+      if (nuveenAlarm.pendingScanAlarmId() || (await getActiveAlarm())) return;
+      // Users from builds where onboarding was unreachable already have alarms: skip it for them.
+      const [done, alarms] = await Promise.all([isOnboardingComplete(), getAlarms()]);
+      router.replace(done || alarms.length > 0 ? '/home' : '/onboarding');
+    };
+    route().catch(() => router.replace('/home'));
   }, []);
 
   return (

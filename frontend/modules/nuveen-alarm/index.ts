@@ -11,6 +11,8 @@ export interface NativeAlarmInput {
   minute: number;
   /** 0=Sunday..6=Saturday. Empty means fire once at the next occurrence. */
   weekdays: number[];
+  /** Bundled sound file for the alarm's volume level, e.g. "alarm_40.caf". */
+  sound: string;
 }
 
 interface NuveenAlarmNativeModule {

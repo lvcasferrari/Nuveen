@@ -49,6 +49,15 @@ enum NuveenAlarmStore {
   static func bumpRearm(_ id: String) {
     defaults.set(rearmCount(id) + 1, forKey: "nuveen.rearms.\(id)")
   }
+
+  /// Sound chosen for the alarm, reused by its re-arms. Kept across clear().
+  static func sound(_ id: String) -> String {
+    defaults.string(forKey: "nuveen.sound.\(id)") ?? "alarm.mp3"
+  }
+
+  static func setSound(_ id: String, _ name: String) {
+    defaults.set(name, forKey: "nuveen.sound.\(id)")
+  }
 }
 
 /// Set by the "Scan NFC" button so the app knows which alarm to open on.
@@ -89,9 +98,12 @@ enum NuveenAlarmID {
 enum NuveenAlarmEngine {
   /// Nuveen amber (#F4C07A)
   static let tint = Color(red: 0.957, green: 0.753, blue: 0.478)
-  /// Same file the app plays (bundled by the expo-notifications plugin), so the
-  /// alarm sounds the same whether or not the app is open.
-  static let alarmSound = AlertConfiguration.AlertSound.named("alarm.mp3")
+  /// Per-alarm file bundled by the expo-notifications plugin. The volume level is baked
+  /// into the file (alarm_10.caf ... alarm_100.caf) because AlarmKit plays at the system
+  /// alert volume and offers no volume control of its own.
+  static func alarmSound(_ name: String) -> AlertConfiguration.AlertSound {
+    .named(name)
+  }
 
   static func attributes(title: String, alarmId: String) -> AlarmAttributes<NuveenAlarmMetadata> {
     let scan = AlarmButton(
@@ -133,7 +145,8 @@ enum NuveenAlarmEngine {
     title: String,
     hour: Int,
     minute: Int,
-    weekdays: [Int]
+    weekdays: [Int],
+    sound: String
   ) async throws -> String {
     let time = Alarm.Schedule.Relative.Time(hour: hour, minute: minute)
     let recurrence: Alarm.Schedule.Relative.Recurrence =
@@ -147,10 +160,11 @@ enum NuveenAlarmEngine {
       attributes: attributes(title: title, alarmId: alarmId),
       stopIntent: NuveenStopIntent(alarmId: alarmId),
       secondaryIntent: NuveenScanIntent(alarmId: alarmId),
-      sound: alarmSound
+      sound: alarmSound(sound)
     )
 
     NuveenAlarmStore.clear(alarmId)
+    NuveenAlarmStore.setSound(alarmId, sound)
     let id = NuveenAlarmID.uuid(for: alarmId)
     _ = try await AlarmManager.shared.schedule(id: id, configuration: config)
     return id.uuidString
@@ -175,7 +189,7 @@ enum NuveenAlarmEngine {
       attributes: attributes(title: "Scan your tag to stop", alarmId: alarmId),
       stopIntent: NuveenStopIntent(alarmId: alarmId),
       secondaryIntent: NuveenScanIntent(alarmId: alarmId),
-      sound: alarmSound
+      sound: alarmSound(NuveenAlarmStore.sound(alarmId))
     )
     try? await AlarmManager.shared.schedule(
       id: NuveenAlarmID.uuid(for: NuveenAlarmID.rearmKey(alarmId, attempt)),
