@@ -1,6 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Alarm, getAlarms, saveAlarms, addAlarm as addAlarmStorage, updateAlarm as updateAlarmStorage, deleteAlarm as deleteAlarmStorage } from '../utils/storage';
+import { Alarm, getAlarms, getActiveAlarm, saveAlarms, addAlarm as addAlarmStorage, updateAlarm as updateAlarmStorage, deleteAlarm as deleteAlarmStorage } from '../utils/storage';
 import { syncAlarm, removeAlarm } from '../utils/alarmScheduler';
+import { scheduleAlarmReminders } from '../utils/notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import nuveenAlarm from '../modules/nuveen-alarm';
+
+const SOUND_SYNC_KEY = '@nuveen:alarm_sound_sync_v1';
 
 interface AlarmContextType {
   alarms: Alarm[];
@@ -22,6 +27,7 @@ export const AlarmProvider = ({ children }: { children: ReactNode }) => {
     try {
       const loadedAlarms = await getAlarms();
       setAlarms(loadedAlarms);
+      scheduleAlarmReminders(loadedAlarms);
     } catch (error) {
       console.error('Error refreshing alarms:', error);
     } finally {
@@ -30,7 +36,15 @@ export const AlarmProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    refreshAlarms();
+    // One-time migration: alarms scheduled by older builds re-sync to pick up their
+    // per-volume sound file. Never while an alarm is ringing: re-syncing cancels its re-arm chain.
+    const migrate = async () => {
+      if ((await AsyncStorage.getItem(SOUND_SYNC_KEY)) === 'done') return;
+      if (nuveenAlarm.pendingScanAlarmId() || (await getActiveAlarm())) return;
+      for (const a of await getAlarms()) await syncAlarm(a).catch(console.error);
+      await AsyncStorage.setItem(SOUND_SYNC_KEY, 'done');
+    };
+    migrate().catch(console.error).finally(refreshAlarms);
   }, []);
 
   const addAlarm = async (alarm: Alarm) => {

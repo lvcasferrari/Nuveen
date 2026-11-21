@@ -16,6 +16,7 @@ export default function AddAlarmScreen() {
       gradientTheme: 'dawn',
       customSoundUri: data.customSoundUri,
       soundName: data.soundName,
+      volume: data.volume,
     });
   };
 

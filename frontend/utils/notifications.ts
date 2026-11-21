@@ -1,6 +1,8 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { Alarm } from './storage';
+import { Alarm, alarmSoundFile, clampVolume, previewSoundFile } from './storage';
+import { dayLabel, upcomingOccurrences } from './schedule';
+import { greeting } from './greetings';
 
 const ALARM_CHANNEL_ID = 'nuveen_alarms';
 
@@ -77,7 +79,8 @@ export const requestNotificationPermissions = async (): Promise<boolean> => {
 const buildAlarmContent = (alarm: Alarm): Notifications.NotificationContentInput => ({
   title: alarm.name || 'Nuveen Alarm',
   body: 'Scan your NFC tag to stop the alarm',
-  sound: 'alarm.mp3',
+  // iOS notification sounds must be CAF/WAV/AIFF; the file carries the alarm's volume level.
+  sound: Platform.OS === 'ios' ? alarmSoundFile(alarm.volume) : 'alarm.mp3',
   priority: Notifications.AndroidNotificationPriority.MAX,
   vibrate: [0, 500, 500, 500],
   sticky: true,
@@ -89,6 +92,7 @@ const buildAlarmContent = (alarm: Alarm): Notifications.NotificationContentInput
     alarmName: alarm.name,
     alarmTime: alarm.time,
     customSoundUri: alarm.customSoundUri ?? null,
+    volume: clampVolume(alarm.volume),
   },
   ...(Platform.OS === 'android' && {
     channelId: ALARM_CHANNEL_ID,
@@ -182,5 +186,58 @@ export const cancelAllAlarmNotifications = async (): Promise<void> => {
     await Notifications.cancelAllScheduledNotificationsAsync();
   } catch (error) {
     console.error('Error canceling all notifications:', error);
+  }
+};
+
+// Plays the level's short preview through the notification sound path, the same alert
+// volume AlarmKit rings at, so what you hear is how loud the alarm will be.
+// Returns false when notifications are off (the caller then previews in-app).
+export const previewAlarmVolume = async (volume: number): Promise<boolean> => {
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status !== 'granted') return false;
+  const id = await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Volume preview',
+      body: `${Math.round(clampVolume(volume) * 100)}%. This is how loud your alarm rings.`,
+      sound: Platform.OS === 'ios' ? previewSoundFile(volume) : 'alarm.mp3',
+      data: { preview: true },
+    },
+    trigger: null,
+  });
+  setTimeout(() => { Notifications.dismissNotificationAsync(id).catch(() => {}); }, 6000);
+  return true;
+};
+
+const REMINDER_HOURS_BEFORE = 9; // around bedtime for a morning alarm
+const MAX_REMINDERS = 7;
+
+// "Your alarm is set" reminders ahead of the next alarms, greeting by time of day.
+// Rebuilt whenever alarms change or the app opens.
+export const scheduleAlarmReminders = async (alarms: Alarm[]): Promise<void> => {
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    for (const n of scheduled) {
+      if (n.content.data?.reminder) await Notifications.cancelScheduledNotificationAsync(n.identifier);
+    }
+    const now = new Date();
+    for (const { alarm, date } of upcomingOccurrences(alarms, now).slice(0, MAX_REMINDERS)) {
+      const remindAt = new Date(date.getTime() - REMINDER_HOURS_BEFORE * 3600 * 1000);
+      if (remindAt.getTime() <= now.getTime() + 60 * 1000) continue;
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: greeting(remindAt),
+          body: `${alarm.name || 'Your alarm'} is set for ${alarm.time} ${dayLabel(date, remindAt)}. Keep your tag where you can walk to it.`,
+          sound: false,
+          data: { reminder: true },
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: remindAt,
+          channelId: Platform.OS === 'android' ? ALARM_CHANNEL_ID : undefined,
+        },
+      });
+    }
+  } catch (error) {
+    console.error('Error scheduling alarm reminders:', error);
   }
 };

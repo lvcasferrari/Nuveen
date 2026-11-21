@@ -10,6 +10,7 @@ import {
   Platform,
   TextInput,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { router } from 'expo-router';
 import { GradientBackground } from '../components/GradientBackground';
@@ -261,7 +262,8 @@ export default function SettingsScreen() {
 
           {/* Branding */}
           <View style={styles.branding}>
-            <Text style={[styles.brandText, { color: text }]}>nuveen</Text>
+            <Image source={require('../assets/images/icon.png')} style={styles.brandMark} accessibilityIgnoresInvertColors />
+            <Text style={[styles.brandText, { color: text }]}>Nuveen</Text>
             <Text style={[styles.brandSubtext, { color: textFaded }]}>Wake with intention</Text>
           </View>
         </ScrollView>
@@ -408,6 +410,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 32,
     marginBottom: 48,
+  },
+  brandMark: {
+    width: 64,
+    height: 64,
+    borderRadius: 15,
+    marginBottom: 16,
   },
   brandText: {
     fontSize: 32,

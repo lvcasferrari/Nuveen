@@ -7,14 +7,18 @@
     "scheme": "nuveen",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "icon": "./assets/images/icon.png",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0C0C0C"
+    },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "infoPlist": {
         "NFCReaderUsageDescription": "Nuveen needs NFC access to scan your tag and stop alarms.",
         "NSAlarmKitUsageDescription": "Nuveen needs alarm access so your alarm can ring on the lock screen, in silent mode and in Focus.",
         "ITSAppUsesNonExemptEncryption": false,
-        "UIFileSharingEnabled": true,
-        "LSSupportsOpeningDocumentsInPlace": true,
         "UIBackgroundModes": [
           "audio",
           "remote-notification"
@@ -22,10 +26,17 @@
       },
       "bundleIdentifier": "com.nuveen.alarm",
       "entitlements": {
-        "com.apple.developer.nfc.readersession.formats": ["TAG"]
+        "com.apple.developer.nfc.readersession.formats": [
+          "TAG"
+        ]
       },
       "config": {
         "usesNonExemptEncryption": false
+      },
+      "icon": {
+        "light": "./assets/images/icon.png",
+        "dark": "./assets/images/icon-dark.png",
+        "tinted": "./assets/images/icon-tinted.png"
       }
     },
     "android": {
@@ -42,7 +53,11 @@
         "android.permission.DISABLE_KEYGUARD"
       ],
       "edgeToEdgeEnabled": true,
-      "package": "com.nuveen.alarm"
+      "package": "com.nuveen.alarm",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#FEFAEF"
+      }
     },
     "notification": {
       "color": "#F4C07A"
@@ -58,7 +73,29 @@
         "expo-notifications",
         {
           "color": "#F4C07A",
-          "sounds": ["./assets/sounds/alarm.mp3"]
+          "sounds": [
+            "./assets/sounds/alarm.mp3",
+            "./assets/sounds/alarm_10.caf",
+            "./assets/sounds/alarm_20.caf",
+            "./assets/sounds/alarm_30.caf",
+            "./assets/sounds/alarm_40.caf",
+            "./assets/sounds/alarm_50.caf",
+            "./assets/sounds/alarm_60.caf",
+            "./assets/sounds/alarm_70.caf",
+            "./assets/sounds/alarm_80.caf",
+            "./assets/sounds/alarm_90.caf",
+            "./assets/sounds/alarm_100.caf",
+            "./assets/sounds/preview_10.caf",
+            "./assets/sounds/preview_20.caf",
+            "./assets/sounds/preview_30.caf",
+            "./assets/sounds/preview_40.caf",
+            "./assets/sounds/preview_50.caf",
+            "./assets/sounds/preview_60.caf",
+            "./assets/sounds/preview_70.caf",
+            "./assets/sounds/preview_80.caf",
+            "./assets/sounds/preview_90.caf",
+            "./assets/sounds/preview_100.caf"
+          ]
         }
       ],
       "expo-document-picker",

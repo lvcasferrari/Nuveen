@@ -5,6 +5,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Image,
+  Linking,
 } from 'react-native';
 import { router } from 'expo-router';
 import { GradientBackground } from '../components/GradientBackground';
@@ -14,44 +16,30 @@ import { useAlarms } from '../contexts/AlarmContext';
 import { useThemeColors } from '../contexts/GradientContext';
 import { Alarm, getActiveAlarm, ActiveAlarm } from '../utils/storage';
 import { Ionicons } from '@expo/vector-icons';
-import { format, differenceInMinutes, addDays, set } from 'date-fns';
+import { differenceInMinutes } from 'date-fns';
+import { dayLabel, upcomingOccurrences } from '../utils/schedule';
+import * as Notifications from 'expo-notifications';
 
 export default function HomeScreen() {
   const { alarms, refreshAlarms } = useAlarms();
-  const { text, textFaded, textLight, card } = useThemeColors();
+  const { text, textFaded, textLight, card, isDark } = useThemeColors();
   const [activeAlarm, setActiveAlarm] = useState<ActiveAlarm | null>(null);
+  const [notificationsOff, setNotificationsOff] = useState(false);
 
   useEffect(() => {
     refreshAlarms();
     getActiveAlarm().then(setActiveAlarm).catch(() => {});
+    Notifications.getPermissionsAsync()
+      .then(p => setNotificationsOff(p.status !== 'granted'))
+      .catch(() => {});
   }, []);
 
   type NextAlarm = Alarm & { scheduledTime: Date; minutesUntil: number };
+  // Same occurrence logic the scheduler uses, so repeat days are respected.
   const nextAlarm = useMemo((): NextAlarm | null => {
-    const enabledAlarms = alarms.filter(a => a.enabled);
-    if (enabledAlarms.length === 0) return null;
-
     const now = new Date();
-    let closestAlarm: NextAlarm | null = null;
-    let minDiff = Infinity;
-
-    enabledAlarms.forEach(alarm => {
-      const [hours, minutes] = alarm.time.split(':').map(Number);
-      let alarmTime = set(now, { hours, minutes, seconds: 0, milliseconds: 0 });
-
-      // If alarm time has passed today, schedule for tomorrow
-      if (alarmTime <= now) {
-        alarmTime = addDays(alarmTime, 1);
-      }
-
-      const diff = differenceInMinutes(alarmTime, now);
-      if (diff < minDiff) {
-        minDiff = diff;
-        closestAlarm = { ...alarm, scheduledTime: alarmTime, minutesUntil: diff };
-      }
-    });
-
-    return closestAlarm;
+    const next = upcomingOccurrences(alarms, now)[0];
+    return next ? { ...next.alarm, scheduledTime: next.date, minutesUntil: differenceInMinutes(next.date, now) } : null;
   }, [alarms]);
 
   const formatCountdown = (minutes: number) => {
@@ -66,7 +54,10 @@ export default function HomeScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={[styles.logo, { color: text }]}>nuveen</Text>
+            <View style={styles.brand}>
+              <Image source={require('../assets/images/icon.png')} style={styles.brandMark} accessibilityIgnoresInvertColors />
+              <Text style={[styles.logo, { color: text }]}>Nuveen</Text>
+            </View>
             <TouchableOpacity
               onPress={() => router.push('/settings')}
               style={[styles.settingsButton, { backgroundColor: card }]}
@@ -83,7 +74,7 @@ export default function HomeScreen() {
                 <Text style={[styles.alarmTime, { color: text }]}>{nextAlarm.time}</Text>
                 <Text style={[styles.alarmName, { color: text }]}>{nextAlarm.name || 'Alarm'}</Text>
                 <Text style={[styles.countdown, { color: textFaded }]}>
-                  {formatCountdown(nextAlarm.minutesUntil)}
+                  {nextAlarm.minutesUntil >= 24 * 60 ? dayLabel(nextAlarm.scheduledTime, new Date()) : formatCountdown(nextAlarm.minutesUntil)}
                 </Text>
                 {nextAlarm.nfcRequired && (
                   <View style={[styles.nfcBadge, { backgroundColor: card }]}>
@@ -101,6 +92,23 @@ export default function HomeScreen() {
             )}
           </View>
 
+          {notificationsOff && (
+            <TouchableOpacity
+              onPress={() => Linking.openSettings()}
+              activeOpacity={0.8}
+              style={[styles.warningCard, { backgroundColor: card }]}
+              accessibilityRole="button"
+            >
+              <Ionicons name="notifications-off-outline" size={26} color="#CC2200" />
+              <View style={{ flex: 1, marginLeft: 14 }}>
+                <Text style={[styles.warningTitle, { color: text }]}>Notifications are off</Text>
+                <Text style={[styles.warningBody, { color: textFaded }]}>
+                  Nuveen cannot ring when the app is closed. Tap to turn them on in Settings.
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+
           {/* SOS: Stop Ringing Alarm */}
           {activeAlarm && (
             <TouchableOpacity
@@ -117,17 +125,17 @@ export default function HomeScreen() {
               style={styles.sosCard}
             >
               <LinearGradient
-                colors={['#FF4444', '#CC0000']}
+                colors={isDark ? ['#F4C07A', '#EAA85B'] : ['#0C0C0C', '#1A1A1A']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.sosCardInner}
               >
-                <Ionicons name="scan" size={28} color="#fff" />
+                <Ionicons name="scan" size={28} color={isDark ? '#0C0C0C' : '#F4C07A'} />
                 <View style={{ flex: 1, marginLeft: 16 }}>
-                  <Text style={styles.sosTitle}>Alarm is Ringing!</Text>
-                  <Text style={styles.sosSubtitle}>Tap to scan NFC and stop</Text>
+                  <Text style={[styles.sosTitle, { color: isDark ? '#0C0C0C' : '#F2EEE7' }]}>Your alarm is ringing</Text>
+                  <Text style={[styles.sosSubtitle, { color: isDark ? 'rgba(12,12,12,0.7)' : '#D7D3CC' }]}>Walk to your tag and scan to stop</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={24} color="#fff" />
+                <Ionicons name="chevron-forward" size={24} color={isDark ? '#0C0C0C' : '#F4C07A'} />
               </LinearGradient>
             </TouchableOpacity>
           )}
@@ -182,6 +190,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 48,
+  },
+  brand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  brandMark: {
+    width: 36,
+    height: 36,
+    borderRadius: 9,
   },
   logo: {
     fontSize: 28,
@@ -274,6 +292,15 @@ const styles = StyleSheet.create({
   actions: {
     gap: 16,
   },
+  warningCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    borderRadius: 24,
+    marginBottom: 16,
+  },
+  warningTitle: { fontSize: 16, fontWeight: '700' },
+  warningBody: { fontSize: 14, marginTop: 4, lineHeight: 20 },
   sosCard: {
     marginBottom: 16,
   },
@@ -285,12 +312,10 @@ const styles = StyleSheet.create({
   },
   sosTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
+    fontWeight: '600',
   },
   sosSubtitle: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
     marginTop: 2,
   },
   actionButton: {

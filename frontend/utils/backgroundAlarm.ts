@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { getAlarms, setActiveAlarm, getActiveAlarm, updateAlarm } from './storage';
+import { getAlarms, setActiveAlarm, getActiveAlarm, updateAlarm, clampVolume } from './storage';
 import {
   startSilentKeepAlive,
   stopSilentKeepAlive,
@@ -50,6 +50,7 @@ export const startBackgroundAlarmMonitor = async (): Promise<void> => {
           alarmName: due.name,
           alarmTime: due.time,
           customSoundUri: due.customSoundUri,
+          volume: due.volume,
           startedAt: new Date().toISOString(),
         });
 
@@ -59,7 +60,7 @@ export const startBackgroundAlarmMonitor = async (): Promise<void> => {
         }
 
         // Start alarm sound from background so it plays even on lock screen
-        await startAlarmSound(due.customSoundUri);
+        await startAlarmSound(due.customSoundUri, due.volume);
 
         router.push({
           pathname: '/alarm-ringing',
@@ -68,6 +69,7 @@ export const startBackgroundAlarmMonitor = async (): Promise<void> => {
             time: due.time,
             alarmName: due.name,
             customSoundUri: due.customSoundUri ?? '',
+            volume: String(clampVolume(due.volume)),
           },
         });
       }

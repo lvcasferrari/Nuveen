@@ -17,8 +17,12 @@ import {
   getSettings,
   setActiveAlarm,
   clearActiveAlarm,
+  clampVolume,
+  getAlarms,
+  updateAlarm,
 } from '../utils/storage';
 import * as Haptics from 'expo-haptics';
+import { greeting, punchline } from '../utils/greetings';
 import { cancelAndDismissAlarmNotifications } from '../utils/notifications';
 import { startAlarmSound, stopAlarmSound, isAlarmRinging, configureAudioSession } from '../utils/alarmAudio';
 import nuveenAlarm from '../modules/nuveen-alarm';
@@ -31,9 +35,12 @@ export default function AlarmRingingScreen() {
   const alarmName = (params.alarmName as string) || 'Alarm';
   const time = params.time as string;
   const customSoundUri = params.customSoundUri as string | undefined;
+  const volume = clampVolume(params.volume);
 
   const [screenState, setScreenState] = useState<ScreenState>('ringing');
   const [nfcStatusMessage, setNfcStatusMessage] = useState<string | null>(null);
+  // Greeting matches the time of day; the line is picked once per screen.
+  const [wakeMessage] = useState(() => ({ title: greeting(), line: punchline() }));
   const vibrationRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -42,6 +49,7 @@ export default function AlarmRingingScreen() {
       alarmName,
       alarmTime: time,
       customSoundUri: customSoundUri || undefined,
+      volume,
       startedAt: new Date().toISOString(),
     }).catch(console.error);
 
@@ -77,7 +85,7 @@ export default function AlarmRingingScreen() {
       await configureAudioSession();
       // If background monitor already started the sound, don't restart it
       if (isAlarmRinging()) return;
-      await startAlarmSound(customSoundUri || undefined);
+      await startAlarmSound(customSoundUri || undefined, volume);
     } catch (error) {
       console.error('Error setting up alarm sound:', error);
     }
@@ -129,6 +137,9 @@ export default function AlarmRingingScreen() {
     // Tells AlarmKit the tag was scanned, so the alarm does not come back.
     await nuveenAlarm.markVerified(alarmId).catch((error) => console.error('markVerified failed:', error));
     await clearActiveAlarm();
+    // One-time alarms are done once dismissed (AlarmKit won't ring them again either).
+    const done = (await getAlarms()).find(a => a.id === alarmId);
+    if (done && done.repeatDays.length === 0) await updateAlarm({ ...done, enabled: false });
     // Cancel all pending notifications and dismiss from notification tray
     await cancelAndDismissAlarmNotifications(alarmId).catch(() => {});
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -143,8 +154,8 @@ export default function AlarmRingingScreen() {
         {screenState === 'success' ? (
           <View style={styles.successContainer}>
             <Ionicons name="checkmark-circle" size={120} color="#4CAF50" />
-            <Text style={styles.successTitle}>Good Morning</Text>
-            <Text style={styles.successSubtitle}>Have a peaceful and intentional day.</Text>
+            <Text style={styles.successTitle}>{wakeMessage.title}</Text>
+            <Text style={styles.successSubtitle}>{wakeMessage.line}</Text>
           </View>
         ) : (
           <View style={styles.content}>

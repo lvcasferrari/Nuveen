@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,12 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { playMediumFeedback } from '../utils/feedback';
 import { useThemeColors } from '../contexts/GradientContext';
+import { clampVolume, MIN_ALARM_VOLUME } from '../utils/storage';
+import { previewAlarmVolume } from '../utils/notifications';
+import { previewInApp } from '../utils/alarmAudio';
+import { previewWithAlarmKit, stopAlarmPreview } from '../utils/alarmScheduler';
+
+const VOLUME_STEP = 0.1;
 
 const WEEKDAYS = [
   { id: 0, label: 'Sun' },
@@ -36,6 +42,7 @@ export interface AlarmFormData {
   repeatDays: number[];
   customSoundUri?: string;
   soundName?: string;
+  volume: number;
 }
 
 interface Props {
@@ -46,6 +53,7 @@ interface Props {
   initialRepeatDays?: number[];
   initialCustomSoundUri?: string;
   initialSoundName?: string;
+  initialVolume?: number;
   onSubmit: (data: AlarmFormData) => Promise<void>;
 }
 
@@ -57,6 +65,7 @@ export default function AlarmForm({
   initialRepeatDays = [],
   initialCustomSoundUri,
   initialSoundName,
+  initialVolume,
   onSubmit,
 }: Props) {
   const { text, textFaded, card, isDark } = useThemeColors();
@@ -66,6 +75,27 @@ export default function AlarmForm({
   const [showTimePicker, setShowTimePicker] = useState(Platform.OS === 'ios');
   const [customSoundUri, setCustomSoundUri] = useState<string | undefined>(initialCustomSoundUri);
   const [soundName, setSoundName] = useState<string | undefined>(initialSoundName);
+  const [volume, setVolume] = useState(() => clampVolume(initialVolume));
+  const volumePercent = Math.round(volume * 100);
+
+  // A preview alarm must not outlive the form.
+  useEffect(() => stopAlarmPreview, []);
+
+  const handlePreview = async () => {
+    playMediumFeedback();
+    try {
+      if (await previewWithAlarmKit(volume)) return;
+      if (await previewAlarmVolume(volume)) return;
+      await previewInApp(volume);
+    } catch (error) {
+      console.error('Preview failed:', error);
+    }
+  };
+
+  const changeVolume = (delta: number) => {
+    playMediumFeedback();
+    setVolume(v => clampVolume(v + delta));
+  };
 
   const toggleDay = (dayId: number) => {
     playMediumFeedback();
@@ -102,6 +132,7 @@ export default function AlarmForm({
   };
 
   const handleSave = async () => {
+    stopAlarmPreview();
     const hours = time.getHours().toString().padStart(2, '0');
     const minutes = time.getMinutes().toString().padStart(2, '0');
     await onSubmit({
@@ -110,6 +141,7 @@ export default function AlarmForm({
       repeatDays,
       customSoundUri,
       soundName,
+      volume,
     });
     router.back();
   };
@@ -222,6 +254,49 @@ export default function AlarmForm({
             </View>
           </View>
 
+          {/* Volume */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: text }]}>Alarm Volume</Text>
+            <View
+              style={styles.volumeRow}
+              accessible
+              accessibilityRole="adjustable"
+              accessibilityLabel="Alarm volume"
+              accessibilityValue={{ min: 10, max: 100, now: volumePercent, text: `${volumePercent}%` }}
+              accessibilityHint="Locked at this level while the alarm rings"
+              accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+              onAccessibilityAction={e => changeVolume(e.nativeEvent.actionName === 'increment' ? VOLUME_STEP : -VOLUME_STEP)}
+            >
+              <TouchableOpacity
+                onPress={() => changeVolume(-VOLUME_STEP)}
+                disabled={volume <= MIN_ALARM_VOLUME}
+                style={[styles.volumeButton, volume <= MIN_ALARM_VOLUME && styles.volumeButtonDisabled]}
+                hitSlop={8}
+              >
+                <Ionicons name="remove" size={22} color={text} />
+              </TouchableOpacity>
+              <View style={styles.volumeValue}>
+                <Ionicons name={volume < 0.5 ? 'volume-low' : 'volume-high'} size={20} color="#F4C07A" />
+                <Text style={[styles.volumeText, { color: text }]}>{volumePercent}%</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => changeVolume(VOLUME_STEP)}
+                disabled={volume >= 1}
+                style={[styles.volumeButton, volume >= 1 && styles.volumeButtonDisabled]}
+                hitSlop={8}
+              >
+                <Ionicons name="add" size={22} color={text} />
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity onPress={handlePreview} style={styles.previewButton} accessibilityRole="button" accessibilityLabel={`Preview alarm at ${volumePercent} percent`}>
+              <Ionicons name="play" size={18} color="#F4C07A" />
+              <Text style={[styles.previewText, { color: text }]}>Preview at {volumePercent}%</Text>
+            </TouchableOpacity>
+            <Text style={[styles.audioSubtext, { color: textFaded, marginTop: 8 }]}>
+              Rings a short real alarm at this level, exactly as loud as it will be with your phone locked. Can't be changed while the alarm rings.
+            </Text>
+          </View>
+
           <View style={styles.nfcInfo}>
             <Ionicons name="scan" size={20} color="#F4C07A" />
             <Text style={[styles.nfcText, { color: text }]}>NFC scan required to stop alarm</Text>
@@ -306,6 +381,36 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   audioInfo: { flexDirection: 'row', alignItems: 'center' },
+  volumeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(12, 12, 12, 0.05)',
+    borderRadius: 16,
+    padding: 12,
+  },
+  volumeButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(244, 192, 122, 0.25)',
+  },
+  volumeButtonDisabled: { opacity: 0.35 },
+  volumeValue: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  volumeText: { fontSize: 18, fontWeight: '600' },
+  previewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: '#F4C07A',
+    marginTop: 12,
+  },
+  previewText: { fontSize: 14, fontWeight: '600', marginLeft: 8 },
   audioText: { marginLeft: 12, flex: 1 },
   audioLabel: { fontSize: 16, fontWeight: '600', color: '#0C0C0C', marginBottom: 4 },
   audioSubtext: { fontSize: 14, color: '#0C0C0C', opacity: 0.6 },

@@ -7,6 +7,8 @@ struct NuveenAlarmInput: Record {
   @Field var hour: Int = 7
   @Field var minute: Int = 0
   @Field var weekdays: [Int] = []
+  /// Bundled sound file for this alarm's volume level, e.g. "alarm_40.caf".
+  @Field var sound: String = "alarm.mp3"
 }
 
 public class NuveenAlarmModule: Module {
@@ -41,8 +43,22 @@ public class NuveenAlarmModule: Module {
         title: input.title,
         hour: input.hour,
         minute: input.minute,
-        weekdays: input.weekdays
+        weekdays: input.weekdays,
+        sound: input.sound
       )
+    }
+
+    // Rings a short AlarmKit alarm with the given sound, exactly as a real alarm would.
+    AsyncFunction("preview") { (sound: String) async throws in
+      guard #available(iOS 26.0, *) else {
+        throw Exception(name: "UnsupportedOS", description: "AlarmKit requires iOS 26 or later")
+      }
+      try await NuveenAlarmEngine.preview(sound: sound)
+    }
+
+    AsyncFunction("stopPreview") { () in
+      guard #available(iOS 26.0, *) else { return }
+      NuveenAlarmEngine.stopPreview()
     }
 
     AsyncFunction("cancel") { (id: String) in

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,131 +9,129 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { GradientBackground } from '../components/GradientBackground';
+import { OnboardingArt, ArtKind } from '../components/OnboardingArt';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { requestNotificationPermissions } from '../utils/notifications';
+import nuveenAlarm, { isAlarmKitLinked } from '../modules/nuveen-alarm';
+import { playMediumFeedback } from '../utils/feedback';
 
 const { width } = Dimensions.get('window');
 
-const ONBOARDING_SLIDES = [
+const SLIDES: { id: string; art: ArtKind; title: string; description: string }[] = [
   {
-    id: '1',
+    id: 'wake',
+    art: 'sunrise',
     title: 'Wake with\nintention',
-    description: 'Start your day mindfully with beautiful dawn rituals',
+    description: 'A calm, warm start to every day. No snooze, no streaks.',
   },
   {
-    id: '2',
-    title: 'Stop alarms by\nscanning your tag',
-    description: 'Place your NFC tag away from bed to ensure you get up',
+    id: 'tag',
+    art: 'tag',
+    title: 'Walk to your\ntag to stop it',
+    description: 'Put your NFC tag across the room. The alarm stops only when you scan it.',
   },
   {
-    id: '3',
-    title: 'Build a peaceful\nmorning ritual',
-    description: 'Create a calm, consistent start to every day',
+    id: 'volume',
+    art: 'volume',
+    title: 'Choose how\nloud it rings',
+    description: 'Pick a level for each alarm and preview it before you sleep.',
+  },
+  {
+    id: 'notify',
+    art: 'bell',
+    title: 'Let Nuveen\nreach you',
+    description: 'Allow alarms and notifications so Nuveen rings on the lock screen, in Silent mode and in Focus, even when the app is closed.',
   },
 ];
 
 export default function OnboardingScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const listRef = useRef<FlatList>(null);
+  const isLast = currentIndex === SLIDES.length - 1;
 
-  const renderSlide = ({ item, index }: { item: typeof ONBOARDING_SLIDES[0]; index: number }) => (
-    <View style={styles.slide}>
-      <GradientBackground theme="dawn" animated>
-        <SafeAreaView style={styles.slideContent}>
-          <View style={styles.textContainer}>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.description}>{item.description}</Text>
-          </View>
-        </SafeAreaView>
-      </GradientBackground>
-    </View>
-  );
-
-  const handleNext = () => {
-    if (currentIndex < ONBOARDING_SLIDES.length - 1) {
+  const handleNext = async () => {
+    playMediumFeedback();
+    if (!isLast) {
+      listRef.current?.scrollToIndex({ index: currentIndex + 1 });
       setCurrentIndex(currentIndex + 1);
-    } else {
-      router.replace('/nfc-setup');
+      return;
     }
+    await requestNotificationPermissions();
+    // AlarmKit is what makes the alarm ring on the lock screen, in Silent mode and in Focus.
+    if (isAlarmKitLinked() && nuveenAlarm.getAuthorizationState() === 'notDetermined') {
+      await nuveenAlarm.requestAuthorization().catch(() => {});
+    }
+    router.replace('/nfc-setup');
   };
 
   return (
-    <View style={styles.container}>
+    <GradientBackground theme="dark">
       <FlatList
-        data={ONBOARDING_SLIDES}
-        renderItem={renderSlide}
+        ref={listRef}
+        data={SLIDES}
+        keyExtractor={item => item.id}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={(event) => {
-          const index = Math.round(event.nativeEvent.contentOffset.x / width);
-          setCurrentIndex(index);
-        }}
-        scrollEnabled={true}
+        getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
+        onMomentumScrollEnd={e => setCurrentIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
+        renderItem={({ item, index }) => (
+          <SafeAreaView style={styles.slide} edges={['top']}>
+            {/* Only the visible slide animates. */}
+            <View style={styles.art}>{index === currentIndex && <OnboardingArt kind={item.art} />}</View>
+            <Text style={styles.title} accessibilityRole="header">{item.title}</Text>
+            <Text style={styles.description}>{item.description}</Text>
+          </SafeAreaView>
+        )}
       />
 
       <SafeAreaView style={styles.footer} edges={['bottom']}>
         <View style={styles.pagination}>
-          {ONBOARDING_SLIDES.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.dot,
-                index === currentIndex && styles.activeDot,
-              ]}
-            />
+          {SLIDES.map((s, index) => (
+            <View key={s.id} style={[styles.dot, index === currentIndex && styles.activeDot]} />
           ))}
         </View>
 
-        <TouchableOpacity onPress={handleNext} activeOpacity={0.8}>
+        <TouchableOpacity onPress={handleNext} activeOpacity={0.8} accessibilityRole="button">
           <LinearGradient
             colors={['#F4C07A', '#EAA85B']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.button}
           >
-            <Text style={styles.buttonText}>
-              {currentIndex === ONBOARDING_SLIDES.length - 1 ? 'Get Started' : 'Next'}
-            </Text>
+            <Text style={styles.buttonText}>{isLast ? 'Allow alarms' : 'Next'}</Text>
           </LinearGradient>
         </TouchableOpacity>
       </SafeAreaView>
-    </View>
+    </GradientBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0C0C0C',
-  },
   slide: {
     width,
     flex: 1,
-  },
-  slideContent: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
+    paddingTop: 48,
   },
-  textContainer: {
-    alignItems: 'center',
-  },
+  art: { height: 280, justifyContent: 'center', alignItems: 'center', marginBottom: 32 },
   title: {
-    fontSize: 42,
-    fontWeight: '500',
-    color: '#0C0C0C',
+    fontSize: 38,
+    fontWeight: '300',
+    color: '#F4C07A',
     textAlign: 'center',
-    marginBottom: 24,
-    letterSpacing: -1,
+    marginBottom: 20,
+    letterSpacing: -0.5,
   },
   description: {
-    fontSize: 18,
-    color: '#0C0C0C',
+    fontSize: 17,
+    color: '#D7D3CC',
     textAlign: 'center',
-    opacity: 0.8,
-    lineHeight: 26,
-    paddingHorizontal: 16,
+    opacity: 0.85,
+    lineHeight: 25,
+    paddingHorizontal: 8,
   },
   footer: {
     position: 'absolute',
@@ -165,11 +163,6 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#F4C07A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
   },
   buttonText: {
     fontSize: 18,

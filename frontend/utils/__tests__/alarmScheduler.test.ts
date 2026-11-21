@@ -1,6 +1,8 @@
+jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
+
 import nuveenAlarm, { isAlarmKitLinked } from '../../modules/nuveen-alarm';
 import { scheduleAlarmNotification, cancelAlarmNotification } from '../notifications';
-import { syncAlarm } from '../alarmScheduler';
+import { syncAlarm, previewWithAlarmKit } from '../alarmScheduler';
 import type { Alarm } from '../storage';
 
 jest.mock('../../modules/nuveen-alarm', () => ({
@@ -11,6 +13,8 @@ jest.mock('../../modules/nuveen-alarm', () => ({
     requestAuthorization: jest.fn(),
     cancel: jest.fn(),
     schedule: jest.fn(),
+    preview: jest.fn().mockResolvedValue(undefined),
+    stopPreview: jest.fn().mockResolvedValue(undefined),
   },
 }));
 jest.mock('../notifications', () => ({
@@ -31,9 +35,14 @@ describe('syncAlarm', () => {
   it('schedules through AlarmKit when authorized', async () => {
     await syncAlarm(alarm);
     expect(native.schedule).toHaveBeenCalledWith({
-      id: 'a1', title: 'Wake', hour: 7, minute: 30, weekdays: [1, 2],
+      id: 'a1', title: 'Wake', hour: 7, minute: 30, weekdays: [1, 2], sound: 'alarm_100.caf',
     });
     expect(scheduleAlarmNotification).not.toHaveBeenCalled();
+  });
+
+  it('passes the sound file for the alarm volume, since AlarmKit has no volume control', async () => {
+    await syncAlarm({ ...alarm, volume: 0.4 });
+    expect(native.schedule).toHaveBeenCalledWith(expect.objectContaining({ sound: 'alarm_40.caf' }));
   });
 
   it('removes notifications left by older builds so the alarm does not ring twice', async () => {
@@ -65,5 +74,18 @@ describe('syncAlarm', () => {
   it('rejects a malformed time instead of passing NaN to native code', async () => {
     await expect(syncAlarm({ ...alarm, time: 'bad' })).rejects.toThrow('Invalid alarm time');
     expect(native.schedule).not.toHaveBeenCalled();
+  });
+});
+
+describe('previewWithAlarmKit', () => {
+  it('rings a preview through AlarmKit with the same sound file the alarm uses', async () => {
+    expect(await previewWithAlarmKit(0.4)).toBe(true);
+    expect(native.preview).toHaveBeenCalledWith('alarm_40.caf');
+  });
+
+  it('reports false so the caller can fall back when alarm access is denied', async () => {
+    native.getAuthorizationState.mockReturnValue('denied');
+    expect(await previewWithAlarmKit(0.4)).toBe(false);
+    expect(native.preview).not.toHaveBeenCalled();
   });
 });
