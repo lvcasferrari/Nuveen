@@ -46,3 +46,23 @@ export const removeAlarm = async (id: string): Promise<void> => {
   await cancelAlarmNotification(id);
   if (isAlarmKitLinked()) await nuveenAlarm.cancel(id);
 };
+
+// How long the preview alarm rings: 2 s scheduling lead plus about 5 s of sound.
+const PREVIEW_MS = 7000;
+let previewTimer: ReturnType<typeof setTimeout> | null = null;
+
+export const stopAlarmPreview = (): void => {
+  if (previewTimer) { clearTimeout(previewTimer); previewTimer = null; }
+  if (isAlarmKitLinked()) nuveenAlarm.stopPreview().catch(() => {});
+};
+
+// Previews the volume through AlarmKit itself, the same engine and sound file that ring on
+// the locked phone, so the preview level matches the real alarm. Returns false when AlarmKit
+// is unavailable (the caller falls back to a notification or in-app preview).
+export const previewWithAlarmKit = async (volume: number): Promise<boolean> => {
+  if (!isAlarmKitLinked() || !(await hasAlarmAccess())) return false;
+  stopAlarmPreview();
+  await nuveenAlarm.preview(alarmSoundFile(volume));
+  previewTimer = setTimeout(stopAlarmPreview, PREVIEW_MS);
+  return true;
+};

@@ -22,6 +22,9 @@ interface NuveenAlarmNativeModule {
   schedule(input: NativeAlarmInput): Promise<string>;
   cancel(id: string): Promise<void>;
   cancelAll(): Promise<void>;
+  /** Short AlarmKit alarm with this sound file: the exact path and volume of a real alarm. */
+  preview(sound: string): Promise<void>;
+  stopPreview(): Promise<void>;
   /**
    * Called after a valid NFC tag scan. Clears the re-arm chain so the alarm
    * stops coming back. Without this, stopping the alarm re-arms it in 60s.
@@ -65,6 +68,12 @@ const api = {
   },
   cancelAll: async (): Promise<void> => {
     await native?.cancelAll();
+  },
+  preview: async (sound: string): Promise<void> => {
+    await native?.preview(sound);
+  },
+  stopPreview: async (): Promise<void> => {
+    await native?.stopPreview();
   },
   markVerified: async (id: string): Promise<void> => {
     await native?.markVerified(id);

@@ -48,6 +48,19 @@ public class NuveenAlarmModule: Module {
       )
     }
 
+    // Rings a short AlarmKit alarm with the given sound, exactly as a real alarm would.
+    AsyncFunction("preview") { (sound: String) async throws in
+      guard #available(iOS 26.0, *) else {
+        throw Exception(name: "UnsupportedOS", description: "AlarmKit requires iOS 26 or later")
+      }
+      try await NuveenAlarmEngine.preview(sound: sound)
+    }
+
+    AsyncFunction("stopPreview") { () in
+      guard #available(iOS 26.0, *) else { return }
+      NuveenAlarmEngine.stopPreview()
+    }
+
     AsyncFunction("cancel") { (id: String) in
       guard #available(iOS 26.0, *) else { return }
       NuveenAlarmStore.clear(id)

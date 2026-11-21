@@ -2,7 +2,7 @@ jest.mock('@react-native-async-storage/async-storage', () => require('@react-nat
 
 import nuveenAlarm, { isAlarmKitLinked } from '../../modules/nuveen-alarm';
 import { scheduleAlarmNotification, cancelAlarmNotification } from '../notifications';
-import { syncAlarm } from '../alarmScheduler';
+import { syncAlarm, previewWithAlarmKit } from '../alarmScheduler';
 import type { Alarm } from '../storage';
 
 jest.mock('../../modules/nuveen-alarm', () => ({
@@ -13,6 +13,8 @@ jest.mock('../../modules/nuveen-alarm', () => ({
     requestAuthorization: jest.fn(),
     cancel: jest.fn(),
     schedule: jest.fn(),
+    preview: jest.fn().mockResolvedValue(undefined),
+    stopPreview: jest.fn().mockResolvedValue(undefined),
   },
 }));
 jest.mock('../notifications', () => ({
@@ -72,5 +74,18 @@ describe('syncAlarm', () => {
   it('rejects a malformed time instead of passing NaN to native code', async () => {
     await expect(syncAlarm({ ...alarm, time: 'bad' })).rejects.toThrow('Invalid alarm time');
     expect(native.schedule).not.toHaveBeenCalled();
+  });
+});
+
+describe('previewWithAlarmKit', () => {
+  it('rings a preview through AlarmKit with the same sound file the alarm uses', async () => {
+    expect(await previewWithAlarmKit(0.4)).toBe(true);
+    expect(native.preview).toHaveBeenCalledWith('alarm_40.caf');
+  });
+
+  it('reports false so the caller can fall back when alarm access is denied', async () => {
+    native.getAuthorizationState.mockReturnValue('denied');
+    expect(await previewWithAlarmKit(0.4)).toBe(false);
+    expect(native.preview).not.toHaveBeenCalled();
   });
 });

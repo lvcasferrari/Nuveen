@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import { useThemeColors } from '../contexts/GradientContext';
 import { clampVolume, MIN_ALARM_VOLUME } from '../utils/storage';
 import { previewAlarmVolume } from '../utils/notifications';
 import { previewInApp } from '../utils/alarmAudio';
+import { previewWithAlarmKit, stopAlarmPreview } from '../utils/alarmScheduler';
 
 const VOLUME_STEP = 0.1;
 
@@ -77,10 +78,15 @@ export default function AlarmForm({
   const [volume, setVolume] = useState(() => clampVolume(initialVolume));
   const volumePercent = Math.round(volume * 100);
 
+  // A preview alarm must not outlive the form.
+  useEffect(() => stopAlarmPreview, []);
+
   const handlePreview = async () => {
     playMediumFeedback();
     try {
-      if (!(await previewAlarmVolume(volume))) await previewInApp(volume);
+      if (await previewWithAlarmKit(volume)) return;
+      if (await previewAlarmVolume(volume)) return;
+      await previewInApp(volume);
     } catch (error) {
       console.error('Preview failed:', error);
     }
@@ -126,6 +132,7 @@ export default function AlarmForm({
   };
 
   const handleSave = async () => {
+    stopAlarmPreview();
     const hours = time.getHours().toString().padStart(2, '0');
     const minutes = time.getMinutes().toString().padStart(2, '0');
     await onSubmit({
@@ -286,7 +293,7 @@ export default function AlarmForm({
               <Text style={[styles.previewText, { color: text }]}>Preview at {volumePercent}%</Text>
             </TouchableOpacity>
             <Text style={[styles.audioSubtext, { color: textFaded, marginTop: 8 }]}>
-              Plays through your ringer, the way the alarm will sound. Can't be changed while the alarm rings.
+              Rings a short real alarm at this level, exactly as loud as it will be with your phone locked. Can't be changed while the alarm rings.
             </Text>
           </View>
 

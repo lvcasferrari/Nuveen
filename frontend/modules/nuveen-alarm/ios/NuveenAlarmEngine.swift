@@ -170,9 +170,32 @@ enum NuveenAlarmEngine {
     return id.uuidString
   }
 
+  /// The volume preview is a real AlarmKit alarm with the alarm's own sound file, so it
+  /// plays through exactly the path (and at exactly the volume) the locked-phone alarm uses.
+  static let previewId = "__nuveen_preview"
+
+  static func preview(sound: String) async throws {
+    stopPreview()
+    let config = AlarmManager.AlarmConfiguration.alarm(
+      schedule: .fixed(Date().addingTimeInterval(2)),
+      attributes: attributes(title: "Volume preview", alarmId: previewId),
+      stopIntent: NuveenStopIntent(alarmId: previewId),
+      secondaryIntent: NuveenScanIntent(alarmId: previewId),
+      sound: alarmSound(sound)
+    )
+    _ = try await AlarmManager.shared.schedule(id: NuveenAlarmID.uuid(for: previewId), configuration: config)
+  }
+
+  static func stopPreview() {
+    let id = NuveenAlarmID.uuid(for: previewId)
+    try? AlarmManager.shared.stop(id: id)
+    try? AlarmManager.shared.cancel(id: id)
+  }
+
   /// Runs when the user stops a ringing alarm. If they have not scanned their
   /// tag, put the alarm back in 60s — that is the whole point of the product.
   static func handleStop(alarmId: String) async {
+    if alarmId == previewId { return } // a preview never re-arms
     if NuveenAlarmStore.isVerified(alarmId) {
       NuveenAlarmStore.clear(alarmId)
       return
@@ -246,7 +269,7 @@ struct NuveenScanIntent: LiveActivityIntent {
   }
 
   func perform() async throws -> some IntentResult {
-    NuveenPendingScan.alarmId = alarmId
+    if alarmId != NuveenAlarmEngine.previewId { NuveenPendingScan.alarmId = alarmId }
     return .result()
   }
 }
