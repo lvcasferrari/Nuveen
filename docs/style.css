@@ -1,0 +1,9 @@
+:root { --night: #0C0C0C; --amber: #F4C07A; --ink: #F2EEE7; --muted: #D7D3CC; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--night); color: var(--ink); font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; }
+main { max-width: 680px; margin: 0 auto; padding: 48px 16px 64px; }
+h1 { color: var(--amber); font-weight: 300; font-size: 40px; margin: 0 0 8px; }
+h2 { color: var(--amber); font-weight: 500; font-size: 20px; margin-top: 32px; }
+p, li { color: var(--muted); }
+a { color: var(--amber); }
+.meta { color: var(--muted); opacity: .7; font-size: 14px; }

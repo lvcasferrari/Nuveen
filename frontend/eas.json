@@ -31,6 +31,14 @@
     "production": {
       "node": "22.13.0",
       "autoIncrement": true
+    },
+    "store-screenshots": {
+      "extends": "production",
+      "autoIncrement": false,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      }
     }
   },
   "submit": {
