@@ -39,6 +39,8 @@ export default function AlarmRingingScreen() {
 
   const [screenState, setScreenState] = useState<ScreenState>('ringing');
   const [nfcStatusMessage, setNfcStatusMessage] = useState<string | null>(null);
+  // No tag registered (setup skipped): allow a plain stop, as the setup screen promises.
+  const [hasTag, setHasTag] = useState(true);
   // Greeting matches the time of day; the line is picked once per screen.
   const [wakeMessage] = useState(() => ({ title: greeting(), line: punchline() }));
   const vibrationRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -63,6 +65,7 @@ export default function AlarmRingingScreen() {
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     playAlarmSound();
+    getSettings().then(s => setHasTag(s.nfcTags.length > 0)).catch(() => {});
 
     // Cancel remaining burst follow-up notifications and dismiss from tray
     cancelAndDismissAlarmNotifications(alarmId).catch(() => {});
@@ -179,7 +182,9 @@ export default function AlarmRingingScreen() {
               <Text style={styles.instructionText}>
                 {screenState === 'scanning'
                   ? 'Hold your NFC tag near your phone...'
-                  : 'Scan your Nuveen Tag to stop the alarm'}
+                  : hasTag
+                  ? 'Scan your Nuveen Tag to stop the alarm'
+                  : 'Add a tag in Settings to require a scan'}
               </Text>
               {nfcStatusMessage && (
                 <Text style={styles.statusMessage}>{nfcStatusMessage}</Text>
@@ -187,14 +192,14 @@ export default function AlarmRingingScreen() {
             </View>
 
             <TouchableOpacity
-              onPress={handleScanNFC}
+              onPress={hasTag ? handleScanNFC : handleSuccessfulDismiss}
               disabled={screenState === 'scanning'}
               activeOpacity={0.8}
               style={styles.scanButton}
             >
               <View style={[styles.scanButtonInner, screenState === 'scanning' && styles.scanButtonDisabled]}>
                 <Text style={styles.scanButtonText}>
-                  {screenState === 'scanning' ? 'Scanning...' : 'Tap to Scan'}
+                  {screenState === 'scanning' ? 'Scanning...' : hasTag ? 'Tap to Scan' : 'Stop Alarm'}
                 </Text>
               </View>
             </TouchableOpacity>

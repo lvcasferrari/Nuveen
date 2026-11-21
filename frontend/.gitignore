@@ -43,3 +43,4 @@ app-example
 
 # App Store listing with review contact details: kept local, never committed
 store.config.json
+store-assets/
